@@ -176,12 +176,20 @@ static func _ob(ci: CanvasItem, o: Vector2, s: int, x: float, y: float, w: float
 
 
 ## 16x24 단위 캐릭터. o는 좌상단(px), s는 배율.
-## pose: idle, happy, tired, refuse, sleep, lift(p=0~1 바 높이), hang(p=0~1 당긴 정도), support
-static func athlete(ci: CanvasItem, o: Vector2, look: Dictionary, pose: String = "idle", s: int = 2, t: float = 0.0, p: float = 0.0, muscle: bool = false) -> void:
+## pose: idle, happy, tired, refuse, sleep, lift(p=0~1 바 높이), hang(p=0~1 당긴 정도), support,
+##       squat(p=0~1 일어선 정도, 바는 어깨), ohs(p=0~1, 바는 머리 위)
+## style: 진화형 외형 (Forms.LIST[].style). sil 키에 색을 주면 실루엣으로 그린다(진화 연출).
+static func athlete(ci: CanvasItem, o: Vector2, look: Dictionary, pose: String = "idle", s: int = 2, t: float = 0.0, p: float = 0.0, style: Dictionary = {}) -> void:
 	var skin: Color = SKINS[int(look.get("skin", 0))]
 	var hair: Color = HAIR_COLORS[int(look.get("hair_color", 0))]
 	var fit: Color = OUTFITS[int(look.get("outfit", 0))]
-	var style := int(look.get("hair", 0))
+	var pants := PANTS
+	var shoe := WHITE
+	var hair_style := int(look.get("hair", 0))
+	var sil: bool = style.has("sil")
+	if sil:
+		var sc: Color = style.sil
+		skin = sc; hair = sc; fit = sc; pants = sc; shoe = sc
 	o = o.round()
 
 	if pose == "sleep":
@@ -220,15 +228,28 @@ static func athlete(ci: CanvasItem, o: Vector2, look: Dictionary, pose: String =
 			lift = 15
 			arms = "down"
 			eyes = "happy"
-	var hw := 5 if muscle else 4
+		"squat":
+			c = squat_crouch(p)
+			arms = "rack"
+			eyes = "strain" if p < 0.95 else "happy"
+		"ohs":
+			c = squat_crouch(p)
+			arms = "up"
+			eyes = "strain" if p < 0.95 else "happy"
+	var body: String = style.get("body", "normal")
+	var hw: int = {"slim": 3, "normal": 4, "wide": 5, "huge": 6, "chubby": 5}.get(body, 4)
+	var arm_w := 4 if body == "huge" else 3
 	var ho := Vector2(0, -lift * s)  # 당길 때 몸 전체가 올라간다
 	var bo := o + ho
 	var hy := bob + c
+	var acc := not sil  # 실루엣일 땐 액세서리 색을 숨긴다
 
-	# 몸 뒤쪽 요소
-	if style == 1:
+	# 몸 뒤쪽 요소: 망토, 묶은 머리, 올린 팔
+	if style.has("cape") and arms != "up":
+		_ob(ci, bo, s, 8 - hw - 1, 8 + hy, hw * 2 + 2, 13 - c, Color(style.cape) if acc else skin)
+	if hair_style == 1:
 		_ob(ci, bo, s, 11, 1 + hy, 3, 5, hair)
-	elif style == 2:
+	elif hair_style == 2:
 		_ob(ci, bo, s, 6, -2 + hy, 4, 3, hair)
 	if arms == "up":
 		_ob(ci, bo, s, 2, -6 + lift + hy, 3, 15 - lift, skin)
@@ -241,21 +262,38 @@ static func athlete(ci: CanvasItem, o: Vector2, look: Dictionary, pose: String =
 	var leg_top := 15 + c
 	var leg_h := 23 - leg_top
 	var spread := 1 if c > 1 else 0
-	_ob(ci, bo, s, 4 - spread, leg_top, 4, leg_h, PANTS)
-	_ob(ci, bo, s, 8 + spread, leg_top, 4, leg_h, PANTS)
-	_ob(ci, bo, s, 3 - spread, 22, 5, 2, WHITE)
-	_ob(ci, bo, s, 8 + spread, 22, 5, 2, WHITE)
+	var leg_w := 5 if body == "huge" or body == "chubby" else 4
+	_ob(ci, bo, s, 8 - leg_w - spread, leg_top, leg_w, leg_h, pants)
+	_ob(ci, bo, s, 8 + spread, leg_top, leg_w, leg_h, pants)
+	if style.get("sleeves", false) and acc and leg_h > 4:
+		_px(ci, bo, s, 8 - leg_w - spread, leg_top + leg_h - 4, leg_w, 2, INK)
+		_px(ci, bo, s, 8 + spread, leg_top + leg_h - 4, leg_w, 2, INK)
+	_ob(ci, bo, s, 8 - leg_w - 1 - spread, 22, leg_w + 1, 2, shoe)
+	_ob(ci, bo, s, 8 + spread, 22, leg_w + 1, 2, shoe)
 
 	# 팔 (몸통 옆)
 	if arms == "down" or arms == "cross":
-		_ob(ci, bo, s, 8 - hw - 2, 8 + hy, 3, 7, skin)
-		_ob(ci, bo, s, 8 + hw - 1, 8 + hy, 3, 7, skin)
-		_px(ci, bo, s, 8 - hw - 2, 8 + hy, 3, 2, fit)
-		_px(ci, bo, s, 8 + hw - 1, 8 + hy, 3, 2, fit)
+		_ob(ci, bo, s, 8 - hw - arm_w + 1, 8 + hy, arm_w, 7, skin)
+		_ob(ci, bo, s, 8 + hw - 1, 8 + hy, arm_w, 7, skin)
+		_px(ci, bo, s, 8 - hw - arm_w + 1, 8 + hy, arm_w, 2, fit)
+		_px(ci, bo, s, 8 + hw - 1, 8 + hy, arm_w, 2, fit)
+		if style.get("wrist", false) and acc:
+			_px(ci, bo, s, 8 - hw - arm_w + 1, 13 + hy, arm_w, 1, WHITE)
+			_px(ci, bo, s, 8 + hw - 1, 13 + hy, arm_w, 1, WHITE)
 
 	# 몸통
 	_ob(ci, bo, s, 8 - hw, 8 + hy, hw * 2, 8, fit)
-	_px(ci, bo, s, 7, 9 + hy, 2, 1, Color(WHITE, 0.6))
+	if body == "chubby":
+		# 볼록한 배
+		_ob(ci, bo, s, 8 - hw + 1, 11 + hy, hw * 2 - 2, 6, fit)
+		_px(ci, bo, s, 7, 14 + hy, 2, 0.5, Color(INK, 0.4))
+	elif body == "huge" or body == "wide":
+		_px(ci, bo, s, 8 - 0.5, 10 + hy, 1, 0.5, Color(INK, 0.35))
+	if not sil:
+		_px(ci, bo, s, 7, 9 + hy, 2, 1, Color(WHITE, 0.6))
+	if style.get("belt", false) and acc:
+		_px(ci, bo, s, 8 - hw, 14 + hy, hw * 2, 1, Color("6a4020"))
+		_px(ci, bo, s, 7.5, 14 + hy, 1, 1, YELLOW)
 
 	if arms == "bar":
 		var hand_y := lerpf(20.0, 15.0, p)
@@ -263,11 +301,19 @@ static func athlete(ci: CanvasItem, o: Vector2, look: Dictionary, pose: String =
 		_ob(ci, bo, s, 10, 9 + hy, 2, hand_y - 9 - hy + 1, skin)
 	elif arms == "cross":
 		_ob(ci, bo, s, 3, 11 + hy, 10, 3, skin)
+	elif arms == "rack":
+		_ob(ci, bo, s, 8 - hw - 1, 7 + hy, 3, 4, skin)
+		_ob(ci, bo, s, 8 + hw - 2, 7 + hy, 3, 4, skin)
+	if style.get("sweat", false) and acc and int(t * 3) % 2 == 0:
+		_px(ci, bo, s, 13, 3 + hy, 1, 1.5, BLUE)
 
 	# 머리
 	_ob(ci, bo, s, 4, 0 + hy, 8, 8, skin)
+	if body == "chubby" and not sil:
+		_px(ci, bo, s, 4.5, 5.5 + hy, 1.5, 1.5, Color("f0a8a0"))
+		_px(ci, bo, s, 10, 5.5 + hy, 1.5, 1.5, Color("f0a8a0"))
 	_ob(ci, bo, s, 4, 0 + hy, 8, 3, hair)
-	match style:
+	match hair_style:
 		0:
 			_px(ci, bo, s, 4, 3 + hy, 1, 2, hair)
 			_px(ci, bo, s, 11, 3 + hy, 1, 2, hair)
@@ -275,6 +321,16 @@ static func athlete(ci: CanvasItem, o: Vector2, look: Dictionary, pose: String =
 			_px(ci, bo, s, 5, -1 + hy, 1, 1, hair)
 			_px(ci, bo, s, 7, -1 + hy, 1, 1, hair)
 			_px(ci, bo, s, 9, -1 + hy, 1, 1, hair)
+	if style.has("headband") and acc:
+		_px(ci, bo, s, 4, 2.5 + hy, 8, 1, Color(style.headband))
+	if style.get("crown", false) and acc:
+		_px(ci, bo, s, 5, -2 + hy, 6, 2, YELLOW)
+		_px(ci, bo, s, 5, -3 + hy, 1, 1, YELLOW)
+		_px(ci, bo, s, 7.5, -3 + hy, 1, 1, YELLOW)
+		_px(ci, bo, s, 10, -3 + hy, 1, 1, YELLOW)
+		_px(ci, bo, s, 7.5, -1.5 + hy, 1, 0.5, RED)
+	if sil:
+		return
 	# 눈
 	match eyes:
 		"open":
@@ -298,10 +354,22 @@ static func athlete(ci: CanvasItem, o: Vector2, look: Dictionary, pose: String =
 			_px(ci, bo, s, 8.5, 4 + hy, 2, 0.5, INK)
 			_px(ci, bo, s, 6, 5 + hy, 1, 0.5, INK)
 			_px(ci, bo, s, 9, 5 + hy, 1, 0.5, INK)
+	if style.get("glasses", false):
+		Pal.frame(ci, Rect2(bo + Vector2(5, 3.5 + hy) * s, Vector2(2.5, 2.5) * s), INK)
+		Pal.frame(ci, Rect2(bo + Vector2(8.5, 3.5 + hy) * s, Vector2(2.5, 2.5) * s), INK)
+		_px(ci, bo, s, 7.5, 4.5 + hy, 1, 0.5, INK)
+	if style.get("bandage", false):
+		_px(ci, bo, s, 9.5, 1.5 + hy, 2, 1, WHITE)
+		_px(ci, bo, s, 10, 1 + hy, 1, 2, WHITE)
 	if mouth == "open":
 		_px(ci, bo, s, 7, 6.5 + hy, 2, 0.5, INK)
 	elif eyes == "strain":
 		_px(ci, bo, s, 6.5, 6.5 + hy, 3, 0.5, INK)
+
+
+## 스쿼트 자세의 웅크림 정도(단위). 바 위치 계산에도 쓴다.
+static func squat_crouch(p: float) -> int:
+	return int(round(lerpf(6.0, 0.0, clampf(p, 0.0, 1.0))))
 
 
 static func _athlete_sleep(ci: CanvasItem, o: Vector2, s: int, skin: Color, hair: Color, fit: Color) -> void:

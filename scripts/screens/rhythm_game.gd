@@ -216,7 +216,7 @@ func _draw() -> void:
 	var floor_y := scene.size.y * 0.68
 	var look: Dictionary = GameState.data.look
 	var info: Dictionary = Moves.LIST[move_id]
-	var muscular := GameState.is_muscular()
+	var muscular: Dictionary = GameState.style()
 	if info.get("anim", "bar") == "bar":
 		# 큰 풀업 바
 		var bar_y := 30.0

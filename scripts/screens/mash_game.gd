@@ -72,7 +72,7 @@ func _draw() -> void:
 	var cat: String = Moves.LIST[move_id].cat
 	if cat == "barbell" or cat == "kb":
 		var p := 1.0 - _bounce if _bounce > 0 else float(_taps) / _need
-		Pal.athlete(self, o, look, "lift", 2, t, p, GameState.is_muscular())
+		Pal.athlete(self, o, look, "lift", 2, t, p, GameState.style())
 		var hand := Vector2(90, o.y + lerpf(20.0, 15.0, p) * 2 + 1)
 		if cat == "barbell":
 			Pal.barbell(self, hand, 30, 2)
@@ -81,7 +81,7 @@ func _draw() -> void:
 			draw_rect(Rect2(hand - Vector2(4, -1), Vector2(8, 7)), Pal.PANTS)
 	else:
 		var pose := "happy" if _bounce > 0.5 else ("tired" if _taps > 0 else "idle")
-		Pal.athlete(self, o - Vector2(0, _bounce * 10.0), look, pose, 2, t)
+		Pal.athlete(self, o - Vector2(0, _bounce * 10.0), look, pose, 2, t, 0.0, GameState.style())
 	var r := Rect2(2, 172, size.x - 4, size.y - 174)
 	Pal.window(self, r)
 	Pal.text(self, r.position + Vector2(8, 5), Moves.name_of(move_id), Pal.INK)

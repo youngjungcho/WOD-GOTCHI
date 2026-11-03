@@ -13,6 +13,7 @@ static func main_menu(main: Node) -> ListScreen:
 		{"label": "내 WOD 짜기", "cb": func(): main.push(wod_list_menu(main))},
 		{"label": "실제 운동 기록", "cb": func(): main.push(real_menu(main))},
 		{"label": "화이트보드", "cb": func(): main.pop(); main.push(StatsScreen.new())},
+		{"label": "도감", "cb": func(): main.pop(); main.push(DexScreen.new())},
 		{"label": "처음부터 다시", "cb": func(): main.push(reset_menu(main))},
 	])
 
@@ -66,11 +67,11 @@ static func workout_menu(main: Node) -> ListScreen:
 		items.append({"label": "WOD: %s" % w.name, "cb": func(): main.pop_to_root(); main.push(WodRunner.new(w)), "desc": wod_summary(w)})
 	var left := GameState.attempts_left()
 	items.append({
-		"label": "1RM 챌린지 (%d/%d)" % [left, GameState.ATTEMPTS_PER_DAY],
+		"label": "1RM 챌린지 (%d/%d)" % [left, GameState.attempts_max()],
 		"cb": func(): main.push(LiftSetupScreen.new()),
 		"disabled": left <= 0,
 		"hint": "오늘 시기를 다 썼어요. 내일 다시!",
-		"desc": "데드리프트 최대 무게에 도전! 하루 %d번." % GameState.ATTEMPTS_PER_DAY,
+		"desc": "데드·스쿼트·클린·스내치 최대 무게 도전! 종목마다 하루 %d번." % GameState.ATTEMPTS_PER_DAY,
 	})
 	return ListScreen.new("운동 고르기", items)
 

@@ -43,13 +43,15 @@ func _draw() -> void:
 		Pal.text(self, Vector2(x, y), GameState.GAUGE_NAMES[k], Pal.INK)
 		Pal.bar(self, Rect2(x + 62, y + 2, r.size.x - 74, 7), v / 100.0, Pal.gauge_color(v))
 		y += 12
+	Pal.text(self, Vector2(x, y), "멘탈", Pal.INK)
+	Pal.bar(self, Rect2(x + 62, y + 2, r.size.x - 74, 7), GameState.mental() / 100.0, Pal.BLUE.darkened(0.2))
+	y += 12
 	y += 4
 	draw_rect(Rect2(x, y, r.size.x - 12, 1), Pal.MID)
 	y += 4
 	Pal.text(self, Vector2(x, y), "PR 보드", Pal.RED)
 	y += 12
-	var pr := float(d.pr.get("deadlift", 0))
-	Pal.text(self, Vector2(x, y), "데드리프트 1RM  %s" % (Pal.num(pr) + "kg" if pr > 0 else "-"))
+	Pal.text(self, Vector2(x, y), "DL %s  SQ %s  클린 %s  스내치 %s" % [_kg(d.pr.get("deadlift", 0)), _kg(d.pr.get("squat", 0)), _kg(d.pr.get("clean", 0)), _kg(d.pr.get("snatch", 0))])
 	y += 12
 	var rb: Dictionary = d.rhythm_best
 	Pal.text(self, Vector2(x, y), "풀업 %d  버터 %d  머슬업 %d" % [int(rb.get("pullup", 0)), int(rb.get("butterfly", 0)), int(rb.get("muscleup", 0))])

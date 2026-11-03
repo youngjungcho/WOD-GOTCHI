@@ -6,6 +6,7 @@ var main: Node
 var out_dir := "user://shots"
 var step := 0
 const BACKUP := "user://save_backup_for_test.json"
+const DEX_BACKUP := "user://dex_backup_for_test.json"
 
 
 func _ready() -> void:
@@ -13,6 +14,8 @@ func _ready() -> void:
 	# 플레이 중인 저장 데이터는 백업해 두고 끝나면 되돌린다
 	if FileAccess.file_exists(GameState.SAVE_PATH):
 		DirAccess.copy_absolute(ProjectSettings.globalize_path(GameState.SAVE_PATH), ProjectSettings.globalize_path(BACKUP))
+	if FileAccess.file_exists(Forms.DEX_PATH):
+		DirAccess.rename_absolute(ProjectSettings.globalize_path(Forms.DEX_PATH), ProjectSettings.globalize_path(DEX_BACKUP))
 	GameState.reset_game()
 	main = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
@@ -83,11 +86,11 @@ func _run() -> void:
 	await press("menu"); await press("a"); await press("b")
 	await wait(0.2)
 	await shot("workout_menu")
-	# 1RM: 메뉴 두번째 항목
-	await press("a"); await press("b")
+	# 1RM: 메뉴 세번째 항목 (자유 운동, 첫 WOD, 1RM)
+	await press("a"); await press("a"); await press("b")
 	await wait(0.2)
 	await shot("lift_setup")
-	await press("a"); await press("b")  # 도전!
+	await press("a"); await press("a"); await press("b")  # 도전!
 	await wait(2.6)
 	for i in 30:
 		await press("a" if i % 2 == 0 else "b", 0.02)
@@ -97,7 +100,50 @@ func _run() -> void:
 	await shot("lift_result")
 	await press("a"); await wait(0.1); await press("a")
 	await wait(0.3)
-	print("pr=", GameState.data.pr, " xp=", GameState.data.xp, " attempts=", GameState.attempts_left())
+	print("pr=", GameState.data.pr, " xp=", GameState.data.xp, " attempts=", GameState.attempts_left("deadlift"))
+	# ---- 1RM 종목별 ----
+	GameState.data.xp.tec = 100.0  # 클린·스내치 해금
+	GameState.data.gauges.energy = 100.0
+	for lift in ["squat", "clean", "snatch"]:
+		var lg = LiftGame.new(lift, 30.0)
+		main.push(lg)
+		await wait(2.5)
+		var shots := 0
+		var guard := 0
+		while lg._state == "play" and guard < 600:
+			guard += 1
+			var ph: Dictionary = lg._phase()
+			match ph.type:
+				"mash":
+					await press("a" if guard % 2 == 0 else "b", 0.01)
+				"descend":
+					if lg._depth >= 0.95:
+						await shot(lift + "_descend")
+						await press("a")
+				"catch":
+					if abs(lg._cur - lg._zone) < 0.02:
+						await shot(lift + "_catch")
+						await press("a")
+				"balance":
+					if shots == 0:
+						await shot(lift + "_balance")
+						shots = 1
+					await press(lg._bal_next, 0.01)
+					await wait(0.08)
+			await get_tree().process_frame
+		await wait(0.3)
+		await shot(lift + "_done")
+		print(lift, " success=", lg._success, " fail=", lg._fail_msg, " pr=", GameState.pr(lift), " taps=", lg._taps, " ratio=", lg._ratio, " fps=", Engine.get_frames_per_second())
+		await wait(1.0)
+		await press("a"); await wait(0.1); await press("a")
+		await wait(0.3)
+		main.pop_to_root()
+	main.push(LiftSetupScreen.new())
+	await wait(0.2)
+	main.top()._change(0, 2)
+	await wait(0.2)
+	await shot("lift_setup_clean")
+	main.pop_to_root()
 	# 리듬게임 직접 실행 (정확한 타이밍으로 자동 입력)
 	var rg = RhythmGame.new("pullup", 4)
 	main.push(rg)
@@ -171,11 +217,86 @@ func _run() -> void:
 	await wait(0.2)
 	await shot("stats")
 	main.pop()
+	# ---- 호출 / 훈육 ----
+	main.pop_to_root()
+	GameState.data.gauges.food = 90.0
+	GameState.spawn_call("fake_hungry")
+	await wait(0.4)
+	await shot("call_fake")
+	await press("b")  # 단호하게 -> 정답
+	await wait(0.6)
+	await shot("scold_ok")
+	await press("a"); await press("a")
+	print("mental after scold=", GameState.mental())
+	GameState.spawn_call("cheat")
+	await press("a")  # 들어주기 -> 치킨
+	await wait(0.4)
+	print("mental after give-in=", GameState.mental(), " hist=", GameState.data.hist)
+	await press("a"); await press("a"); await press("a")
+	GameState.data.gauges.food = 10.0
+	GameState.data.last_call_end = 0.0
+	GameState._check_calls()
+	print("real call=", GameState.call_type())
+	await press("b")  # 진짜인데 혼냄
+	await wait(0.4)
+	await shot("scold_bad")
+	await press("a"); await press("a")
+	# 호출 만료
+	GameState.spawn_call("lonely")
+	GameState.debug_hours(1.0)
+	print("after expire call_active=", GameState.call_active(), " ignored=", GameState.data.hist.ignored)
+	main.pop_to_root()
+	# ---- 진화 ----
+	GameState.data.mental = 80.0
+	GameState.debug_hours(30.0)
+	GameState.debug_xp(30.0)
+	await wait(0.5)
+	await shot("evolving")
+	await wait(3.6)
+	await shot("evolved")
+	await wait(0.7)
+	await press("a")
+	await wait(0.3)
+	print("form=", GameState.data.form, " title=", GameState.title(), " stage=", GameState.stage())
+	# 스케일드 -> RX(체조 위주)
+	GameState.data.xp.gym = 400.0
+	GameState.debug_hours(48.0)
+	GameState.debug_xp(60.0)
+	await wait(0.3)
+	main.top().t = 99.0
+	await wait(0.8)
+	await shot("evolved_rx")
+	await press("a")
+	await wait(0.3)
+	print("form=", GameState.data.form, " title=", GameState.title())
+	await shot("home_rx")
+	# 외형 미리보기: 모든 진화형
+	var gallery := Control.new()
+	gallery.size = Vector2(180, 236)
+	gallery.draw.connect(func():
+		gallery.draw_rect(Rect2(0, 0, 180, 236), Pal.LIGHT)
+		var i := 0
+		for id in Forms.LIST:
+			var pos := Vector2(4 + (i % 6) * 29, 4 + (i / 6) * 56)
+			Pal.athlete(gallery, pos, GameState.data.look, "idle", 1, 0.0, 0.0, Forms.style_of(id))
+			Pal.text(gallery, pos + Vector2(-2, 28), Forms.name_of(id).left(3), Pal.INK)
+			i += 1)
+	main.add_child(gallery)
+	await wait(0.2)
+	await shot("all_forms")
+	gallery.queue_free()
+	main.push(DexScreen.new())
+	await wait(0.2)
+	await shot("dex")
+	main.pop()
 	GameState.data.sleeping = true
 	await wait(0.3)
 	await shot("sleeping")
 	print("DONE gauges=", GameState.data.gauges, " stage=", GameState.data.stage)
 	GameState.reset_game()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Forms.DEX_PATH))
+	if FileAccess.file_exists(DEX_BACKUP):
+		DirAccess.rename_absolute(ProjectSettings.globalize_path(DEX_BACKUP), ProjectSettings.globalize_path(Forms.DEX_PATH))
 	if FileAccess.file_exists(BACKUP):
 		DirAccess.rename_absolute(ProjectSettings.globalize_path(BACKUP), ProjectSettings.globalize_path(GameState.SAVE_PATH))
 	get_tree().quit()

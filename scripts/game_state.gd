@@ -22,6 +22,7 @@ const STAT_NAMES := {"str": "근력", "gym": "체조", "eng": "엔진", "tec": "
 const GAUGE_NAMES := {"food": "영양", "energy": "에너지", "mood": "의욕", "cond": "컨디션"}
 
 const LIFTS := {"deadlift": "데드리프트", "squat": "백스쿼트", "clean": "클린", "snatch": "스내치"}
+const LIFT_REQ := {"deadlift": {}, "squat": {}, "clean": {"tec": 2}, "snatch": {"tec": 3}}
 const ATTEMPTS_PER_DAY := 3
 
 var data: Dictionary = {}
@@ -40,6 +41,7 @@ func _process(delta: float) -> void:
 		_advance(_accum / 3600.0, false)
 		data.last_tick = now()
 		_accum = 0.0
+		_check_calls()
 		changed.emit()
 
 
@@ -75,18 +77,30 @@ func new_character(name: String, look: Dictionary) -> void:
 		"mess": 0,
 		"injured_until": 0.0,
 		"praise_at": 0.0,
-		"pr": {"deadlift": 0.0},
+		"pr": {"deadlift": 0.0, "squat": 0.0, "clean": 0.0, "snatch": 0.0},
 		"rhythm_best": {},
 		"move_log": {},
+		"form": "rookie",
+		"mental": 30.0,
+		"hist": _empty_hist(),
+		"call": {},
+		"next_fake_call": t + randf_range(20.0, 40.0) * 60.0,
+		"skip_until": 0.0,
+		"pending_evo": {},
 		"attempt_day": "",
-		"attempts_left": ATTEMPTS_PER_DAY,
+		"attempts_used": {},
 		"real": {"checkin_day": "", "prs": {"deadlift": 0, "squat": 0, "clean": 0, "snatch": 0, "pullup": 0}},
 		"wods": [
 			{"name": "첫 WOD", "rounds": 3, "moves": [{"id": "pullup", "reps": 5}, {"id": "deadlift", "reps": 5}, {"id": "burpee", "reps": 5}]},
 		],
 	}
+	Forms.register("rookie", name)
 	save_game()
 	changed.emit()
+
+
+static func _empty_hist() -> Dictionary:
+	return {"cheat": 0, "healthy": 0, "injuries": 0, "ignored": 0, "answered": 0, "scold_ok": 0, "scold_bad": 0, "giveins": 0}
 
 
 func is_created() -> bool:
@@ -128,6 +142,7 @@ func catch_up() -> void:
 		if hours >= 1.0:
 			toast.emit("%s 동안 자리를 비웠어요." % _fmt_hours(hours))
 	data.last_tick = now()
+	_check_calls()
 	save_game()
 	changed.emit()
 
@@ -211,28 +226,22 @@ func stage() -> int:
 
 
 func title() -> String:
-	var st := stage()
-	if st < 2:
-		return STAGE_NAMES[st]
-	var best := "str"
-	for k in STATS:
-		if level(k) > level(best):
-			best = k
-	var lo := 999
-	var hi := 0
-	for k in STATS:
-		lo = min(lo, level(k))
-		hi = max(hi, level(k))
-	var branch := ""
-	if hi - lo <= 1:
-		branch = "올라운더"
-	else:
-		branch = {"str": "바벨 괴물", "gym": "체조 요정", "eng": "카디오 머신", "tec": "테크니션"}[best]
-	return "%s %s" % [STAGE_NAMES[st], branch]
+	var form: String = data.get("form", "rookie")
+	if stage() < 2:
+		return Forms.name_of(form)
+	return "%s %s" % [Forms.STAGE_PREFIX[stage()], Forms.name_of(form)]
 
 
-func is_muscular() -> bool:
-	return stage() >= 2 and level("str") >= level("gym")
+func style() -> Dictionary:
+	return Forms.style_of(data.get("form", "rookie"))
+
+
+func mental() -> float:
+	return float(data.get("mental", 30.0))
+
+
+func add_mental(v: float) -> void:
+	data.mental = clampf(mental() + v, 0.0, 100.0)
 
 
 func is_injured() -> bool:
@@ -249,6 +258,8 @@ func workout_block_reason() -> String:
 		return "자는 중이에요. 먼저 깨워주세요."
 	if is_injured():
 		return "부상 회복 중... (%s 남음)" % injury_left_text()
+	if now() < float(data.get("skip_until", 0.0)):
+		return "오늘은 쉬기로 했잖아요~ (땡땡이 중)"
 	if gauge("energy") < 15.0:
 		return "너무 피곤해서 못하겠어요..."
 	if gauge("mood") < 15.0:
@@ -257,25 +268,69 @@ func workout_block_reason() -> String:
 
 
 ## 1RM 역량(kg). 근력·기술 레벨과 당일 컨디션으로 정해진다.
+## 1RM 역량(kg). 근력·기술 레벨과 당일 컨디션으로 정해진다.
+## 클린·스내치는 기술 비중이 크고 기본 무게가 낮다.
 func lift_capacity(lift: String = "deadlift") -> float:
-	var base := 40.0 + (level("str") - 1) * 8.0 + (level("tec") - 1) * 2.0
-	if lift == "squat":
-		base *= 0.85
+	var st := float(level("str") - 1)
+	var tc := float(level("tec") - 1)
+	var base := 40.0 + st * 8.0 + tc * 2.0
+	match lift:
+		"squat":
+			base *= 0.85
+		"clean":
+			base = (40.0 + st * 6.0 + tc * 5.0) * 0.7
+		"snatch":
+			base = (40.0 + st * 5.0 + tc * 6.0) * 0.55
 	var cond := 0.8 + 0.2 * (gauge("energy") + gauge("cond")) / 200.0
 	cond *= 0.95 + 0.1 * gauge("mood") / 100.0
+	cond *= 0.96 + 0.08 * mental() / 100.0
 	return base * cond
 
 
-func attempts_left() -> int:
-	if data.attempt_day != today():
+func lift_unlocked(lift: String) -> bool:
+	var req: Dictionary = LIFT_REQ[lift]
+	for s in req:
+		if level(s) < int(req[s]):
+			return false
+	return true
+
+
+func lift_req_text(lift: String) -> String:
+	var parts := []
+	for s in LIFT_REQ[lift]:
+		parts.append("%s Lv.%d" % [STAT_NAMES[s], LIFT_REQ[lift][s]])
+	return "해금: " + ", ".join(parts)
+
+
+func pr(lift: String) -> float:
+	return float(data.pr.get(lift, 0.0))
+
+
+## 종목별 오늘 남은 시기. lift를 비우면 해금된 종목 전체 합.
+func attempts_left(lift: String = "") -> int:
+	if data.get("attempt_day", "") != today():
 		data.attempt_day = today()
-		data.attempts_left = ATTEMPTS_PER_DAY
-	return int(data.attempts_left)
+		data.attempts_used = {}
+	if lift == "":
+		var total := 0
+		for l in LIFTS:
+			if lift_unlocked(l):
+				total += attempts_left(l)
+		return total
+	return ATTEMPTS_PER_DAY - int(data.attempts_used.get(lift, 0))
 
 
-func use_attempt() -> void:
+func attempts_max() -> int:
+	var n := 0
+	for l in LIFTS:
+		if lift_unlocked(l):
+			n += ATTEMPTS_PER_DAY
+	return n
+
+
+func use_attempt(lift: String) -> void:
 	attempts_left()
-	data.attempts_left = int(data.attempts_left) - 1
+	data.attempts_used[lift] = int(data.attempts_used.get(lift, 0)) + 1
 
 
 func _migrate() -> void:
@@ -287,6 +342,19 @@ func _migrate() -> void:
 	data.rhythm_best = rb
 	if not data.has("move_log"):
 		data.move_log = {}
+	for l in LIFTS:
+		if not data.pr.has(l):
+			data.pr[l] = 0.0
+	if not data.has("attempts_used"):
+		data.attempts_used = {}
+	if not data.has("hist"):
+		data.hist = _empty_hist()
+	for k in ["mental", "call", "next_fake_call", "skip_until", "pending_evo"]:
+		if not data.has(k):
+			data[k] = {"mental": 30.0, "call": {}, "next_fake_call": now() + 1800.0, "skip_until": 0.0, "pending_evo": {}}[k]
+	if not data.has("form"):
+		data.form = Forms.decide(stage())
+		Forms.register(data.form, data.name)
 
 
 # ---------- 운동 다양성 ----------
@@ -421,6 +489,7 @@ func apply_workout(xp: Dictionary, energy_cost: float, cond_cost: float) -> Arra
 	if low_cond and randf() < 0.3:
 		var hours := 2.0 if stage() < 2 else 6.0
 		data.injured_until = now() + hours * 3600.0
+		data.hist.injuries = int(data.hist.injuries) + 1
 		msgs.append("앗! 무리해서 다쳤어요. %d시간 쉬어야 해요." % int(hours))
 	msgs.append_array(check_stage_up())
 	save_game()
@@ -434,7 +503,10 @@ func check_stage_up() -> Array:
 		var req: Array = STAGE_REQ[stage()]
 		if level_sum() >= int(req[0]) and days_alive() >= int(req[1]):
 			data.stage = stage() + 1
-			msgs.append("진화! [%s] 이(가) 되었어요!" % STAGE_NAMES[stage()])
+			var old: String = data.get("form", "rookie")
+			data.form = Forms.decide(stage())
+			data.pending_evo = {"from": old, "to": data.form}
+			msgs.append("어라...? %s의 모습이...!" % data.name)
 		else:
 			break
 	return msgs
@@ -457,6 +529,8 @@ func feed(id: String) -> String:
 		return "배불러서 더는 못 먹겠어요..."
 	var f := Foods.get_food(id)
 	var cheat := Foods.is_cheat(id)
+	var hk := "cheat" if cheat else "healthy"
+	data.hist[hk] = int(data.hist[hk]) + 1
 	# 오늘 치팅 횟수: 한도를 넘기면 기분은 덜 오르고 능력치는 더 떨어진다
 	if data.get("cheat_day", "") != today():
 		data.cheat_day = today()
@@ -487,6 +561,9 @@ func feed(id: String) -> String:
 	if over:
 		lines.append("오늘 치팅만 %d번째... 몸이 무거워요." % int(data.cheat_count))
 	lines.append_array(check_stage_up())
+	var c := _resolve_call(["hungry", "fake_hungry"] + (["cheat"] if cheat else []))
+	if c != "":
+		lines.append(c)
 	save_game()
 	changed.emit()
 	return "\n".join(lines)
@@ -494,9 +571,11 @@ func feed(id: String) -> String:
 
 func toggle_sleep() -> String:
 	data.sleeping = not data.sleeping
+	var c := _resolve_call(["sleepy", "fake_sleepy"]) if data.sleeping else ""
 	save_game()
 	changed.emit()
-	return "쿨쿨... 잘 자요." if data.sleeping else "기지개 쭉! 일어났어요."
+	var msg := "쿨쿨... 잘 자요." if data.sleeping else "기지개 쭉! 일어났어요."
+	return msg + ("\n" + c if c != "" else "")
 
 
 func stretch() -> String:
@@ -512,8 +591,9 @@ func clean_up() -> String:
 		return "이미 깨끗해요!"
 	data.mess = 0
 	add_gauge("mood", 6)
+	var c := _resolve_call(["dirty"])
 	changed.emit()
-	return "땀 닦고 초크 정리 완료!"
+	return "땀 닦고 초크 정리 완료!" + ("\n" + c if c != "" else "")
 
 
 func praise() -> String:
@@ -524,8 +604,180 @@ func praise() -> String:
 		return "헤헤... (이미 많이 들었어요)"
 	data.praise_at = now()
 	add_gauge("mood", 18)
+	var c := _resolve_call(["lonely"])
 	changed.emit()
-	return "하이파이브! 의욕이 솟아요!"
+	return "하이파이브! 의욕이 솟아요!" + ("\n" + c if c != "" else "")
+
+
+# ---------- 호출 / 훈육 ----------
+# 진짜 호출은 들어줘야 하고, 꾀부림(fake)은 단호하게 거절해야 멘탈이 오른다.
+# 가짜 배고픔은 진짜와 대사가 같아서 게이지를 보고 판단해야 한다.
+
+const CALL_WINDOW := 30.0 * 60.0  # 이 시간 안에 반응하지 않으면 무시한 것
+const CALLS := {
+	"hungry": {"text": "배고파요! 밥 주세요!", "fake": false},
+	"sleepy": {"text": "너무 졸려요... 재워주세요.", "fake": false},
+	"dirty": {"text": "땀 범벅이에요! 닦아주세요.", "fake": false},
+	"lonely": {"text": "심심해요! 놀아줘요~", "fake": false},
+	"fake_hungry": {"text": "배고파요! 밥 주세요!", "fake": true},
+	"cheat": {"text": "치킨 먹고 싶어요! 치킨! 치킨!", "fake": true},
+	"skip": {"text": "오늘 운동... 쉬면 안 돼요?", "fake": true},
+	"fake_sleepy": {"text": "졸려요... 하아암~ (운동 직전인데)", "fake": true},
+}
+
+
+func call_active() -> bool:
+	return not (data.get("call", {}) as Dictionary).is_empty()
+
+
+func call_type() -> String:
+	return data.call.get("type", "")
+
+
+func call_text() -> String:
+	return CALLS[call_type()].text if call_active() else ""
+
+
+## 진짜로 필요한 게 있으면 그 호출 종류를 돌려준다.
+func _real_need() -> String:
+	if gauge("food") < 30.0:
+		return "hungry"
+	if gauge("energy") < 25.0:
+		return "sleepy"
+	if int(data.mess) >= 2:
+		return "dirty"
+	if gauge("mood") < 35.0:
+		return "lonely"
+	return ""
+
+
+func spawn_call(type: String = "") -> void:
+	if type == "":
+		type = _real_need()
+	if type == "":
+		var fakes := ["fake_hungry", "cheat", "skip", "fake_sleepy"]
+		if gauge("food") < 60.0:
+			fakes.erase("fake_hungry")
+		type = fakes[randi() % fakes.size()]
+	data.call = {"type": type, "at": now()}
+	Sfx.play("call")
+	toast.emit("%s이(가) 부르고 있어요!" % data.name)
+	changed.emit()
+
+
+func _check_calls() -> void:
+	if data.sleeping:
+		return
+	if call_active():
+		if now() - float(data.call.at) > CALL_WINDOW:
+			_expire_call()
+		return
+	# 진짜 필요는 바로 부른다 (해결 직후 10분은 쉼)
+	var need := _real_need()
+	if need != "" and now() - float(data.get("last_call_end", 0.0)) > 600.0:
+		spawn_call(need)
+		return
+	# 꾀부림은 가끔. 멘탈이 약할수록 자주.
+	if now() >= float(data.next_fake_call):
+		var gap := lerpf(40.0, 120.0, mental() / 100.0) * 60.0
+		data.next_fake_call = now() + gap * randf_range(0.7, 1.3)
+		if stage() >= 1 or randf() < 0.5:
+			spawn_call()
+
+
+func _end_call() -> void:
+	data.call = {}
+	data.last_call_end = now()
+
+
+func _expire_call() -> void:
+	var fake: bool = CALLS[call_type()].fake
+	_end_call()
+	if fake:
+		add_mental(-1.0)
+		return
+	# 초반(등록생·스케일드)은 너그럽게
+	data.hist.ignored = int(data.hist.ignored) + 1
+	add_gauge("mood", -8.0 if stage() >= 2 else -4.0)
+	toast.emit("불렀는데 아무도 없었어요... 서운해요.")
+
+
+## 행동으로 호출을 해결했는지 확인한다. 꾀부림을 들어주면 멘탈이 떨어진다.
+func _resolve_call(types: Array) -> String:
+	if not call_active() or not types.has(call_type()):
+		return ""
+	var fake: bool = CALLS[call_type()].fake
+	_end_call()
+	if fake:
+		data.hist.giveins = int(data.hist.giveins) + 1
+		add_mental(-5.0)
+		add_gauge("mood", 5)
+		return "(헤헤, 조르니까 들어주네~) 멘탈 -5"
+	data.hist.answered = int(data.hist.answered) + 1
+	add_gauge("mood", 5)
+	add_mental(1.0)
+	return "부를 때 와줘서 고마워요!"
+
+
+## A: 들어주기. 화면 이동이 필요한 경우 "food_menu"를 돌려준다.
+func give_in() -> String:
+	match call_type():
+		"hungry", "fake_hungry":
+			return "food_menu"
+		"cheat":
+			return feed("fried")
+		"skip":
+			_resolve_call(["skip"])
+			data.skip_until = now() + 2.0 * 3600.0
+			add_gauge("mood", 10)
+			save_game()
+			return "앗싸! 오늘은 쉰다~ (2시간 운동 안 함)\n멘탈 -5"
+		"sleepy", "fake_sleepy":
+			return toggle_sleep()
+		"dirty":
+			return clean_up()
+		"lonely":
+			return praise()
+	return ""
+
+
+## B: 단호하게. 꾀부림이면 멘탈이 오르고, 진짜 필요였으면 서운해한다.
+func scold() -> String:
+	if not call_active():
+		return ""
+	var fake: bool = CALLS[call_type()].fake
+	_end_call()
+	if fake:
+		data.hist.scold_ok = int(data.hist.scold_ok) + 1
+		add_mental(8.0)
+		add_gauge("mood", -3)
+		save_game()
+		changed.emit()
+		return "......네, 알겠어요. 참을게요.\n(멘탈 +8)"
+	data.hist.scold_bad = int(data.hist.scold_bad) + 1
+	add_gauge("mood", -10)
+	save_game()
+	changed.emit()
+	return "진짜였는데... 억울해요 ㅠㅠ\n(기분 -10)"
+
+
+# ---------- 테스트용 ----------
+
+func debug_hours(h: float) -> void:
+	data.last_tick = now() - h * 3600.0
+	data.born = float(data.born) - h * 3600.0
+	if call_active():
+		data.call.at = float(data.call.at) - h * 3600.0
+	catch_up()
+
+
+func debug_xp(v: float) -> void:
+	for s in STATS:
+		data.xp[s] = float(data.xp[s]) + v
+	toast.emit("(테스트) 모든 능력치 +%d XP" % int(v))
+	check_stage_up()
+	save_game()
+	changed.emit()
 
 
 # ---------- 실제 운동 연동 ----------

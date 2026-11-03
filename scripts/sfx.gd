@@ -20,6 +20,8 @@ const SOUNDS := {
 	"success": [[523.0, 0.1], [659.0, 0.1], [784.0, 0.1], [1047.0, 0.25]],
 	"fail": [[392.0, 0.15], [330.0, 0.15], [262.0, 0.3]],
 	"levelup": [[784.0, 0.08], [988.0, 0.08], [1175.0, 0.08], [1568.0, 0.2]],
+	"call": [[1400.0, 0.06], [0.0, 0.04], [1400.0, 0.06], [0.0, 0.04], [1400.0, 0.06]],
+	"evolve": [[392.0, 0.12], [523.0, 0.12], [392.0, 0.12], [523.0, 0.12], [659.0, 0.12], [784.0, 0.3]],
 }
 
 
@@ -47,6 +49,10 @@ func _build(notes: Array) -> AudioStreamWAV:
 	for n in notes:
 		var freq: float = n[0]
 		var count := int(RATE * float(n[1]))
+		if freq <= 0.0:
+			for i in count:
+				bytes.append(0)
+			continue
 		var period := RATE / freq
 		for i in count:
 			# 끝부분을 줄여서 딸깍 소리를 막는다

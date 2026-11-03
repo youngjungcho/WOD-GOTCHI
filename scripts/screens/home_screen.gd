@@ -1,6 +1,7 @@
 class_name HomeScreen
 extends Screen
 ## 메인 화면: 캐릭터를 돌보는 곳. A=칭찬, B=상태, 메뉴=행동 메뉴.
+## 호출 중일 때는 A=들어주기, B=단호하게.
 
 const SCENE := Rect2(0, 30, 180, 136)
 
@@ -25,6 +26,15 @@ func _process(delta: float) -> void:
 		_target_x = randf_range(40.0, 140.0)
 	if not d.sleeping and _pose() == "idle":
 		_x = move_toward(_x, _target_x, delta * 12.0)
+	_check_evolution()
+
+
+## 진화가 대기 중이면 (다른 화면이 없을 때) 진화 연출을 띄운다.
+func _check_evolution() -> void:
+	var evo: Dictionary = GameState.data.get("pending_evo", {})
+	if evo.is_empty() or main.top() != self:
+		return
+	main.push(EvolutionScreen.new(evo.from, evo.to))
 
 
 func _pose() -> String:
@@ -42,6 +52,8 @@ func _pose() -> String:
 
 func _mood_line() -> String:
 	var d: Dictionary = GameState.data
+	if GameState.call_active():
+		return "! " + GameState.call_text()
 	if d.sleeping:
 		return "쿨쿨... (에너지 회복 중)"
 	if GameState.is_injured():
@@ -56,7 +68,7 @@ func _mood_line() -> String:
 		return "땀이랑 초크가 엉망이에요..."
 	if GameState.gauge("mood") < 25.0:
 		return "운동하기 싫어요... 칭찬해 줘요."
-	if GameState.attempts_left() == GameState.ATTEMPTS_PER_DAY and GameState.stage() >= 1:
+	if GameState.attempts_left() == GameState.attempts_max() and GameState.stage() >= 1:
 		return "오늘 1RM 도전해 볼까요?"
 	return "오늘도 WOD 하러 가볼까요!"
 
@@ -67,6 +79,9 @@ func on_resume() -> void:
 
 func on_button(btn: String, down: bool) -> void:
 	if not down:
+		return
+	if GameState.call_active() and btn != "menu":
+		_answer_call(btn == "a")
 		return
 	match btn:
 		"a":
@@ -79,6 +94,20 @@ func on_button(btn: String, down: bool) -> void:
 			main.push(StatsScreen.new())
 		"menu":
 			main.push(Menus.main_menu(main))
+
+
+func _answer_call(give: bool) -> void:
+	if not give:
+		Sfx.play("back")
+		main.say(GameState.scold())
+		return
+	var res := GameState.give_in()
+	if res == "food_menu":
+		main.push(Menus.food_menu(main))
+		return
+	_happy_until = t + 1.5
+	Sfx.play("good")
+	main.say(res)
 
 
 func on_tap(pos: Vector2) -> void:
@@ -119,13 +148,18 @@ func _draw() -> void:
 	# 캐릭터
 	var pose := _pose()
 	var cx := 90.0 if pose == "sleep" else _x
-	Pal.athlete(self, Vector2(cx - 16, floor_y - 44), d.look, pose, 2, t, 0.0, GameState.is_muscular())
+	Pal.athlete(self, Vector2(cx - 16, floor_y - 44), d.look, pose, 2, t, 0.0, GameState.style())
 	if GameState.is_injured() and pose != "sleep":
 		draw_rect(Rect2(cx + 4, floor_y - 40, 6, 2), Pal.WHITE)
 	if pose == "tired" and int(t * 2) % 2 == 0:
 		draw_rect(Rect2(cx + 12, floor_y - 40, 2, 3), Pal.BLUE)
 	if pose == "happy":
 		Pal.text(self, Vector2(cx + 14, floor_y - 54), "♪", Pal.RED)
+	if GameState.call_active() and int(t * 3) % 2 == 0:
+		# 머리 위 느낌표 말풍선
+		var b := Rect2(cx + 6, floor_y - 66, 12, 14)
+		Pal.window(self, b)
+		Pal.text(self, b.position + Vector2(4, 2), "!", Pal.RED)
 	# 밤(자는 중) 효과
 	if d.sleeping:
 		draw_rect(SCENE, Color(Color("202048"), 0.45))
@@ -137,4 +171,5 @@ func _draw() -> void:
 	var r := Rect2(2, SCENE.end.y + 2, size.x - 4, size.y - SCENE.end.y - 4)
 	Pal.window(self, r)
 	Pal.text_wrap(self, r.position + Vector2(8, 6), _mood_line(), r.size.x - 16, Pal.INK, 10, 2)
-	Pal.text(self, Vector2(r.position.x + 8, r.end.y - 16), "A 칭찬  B 상태  메뉴 행동", Pal.DARK)
+	var help := "A 들어주기  B 단호하게" if GameState.call_active() else "A 칭찬  B 상태  메뉴 행동"
+	Pal.text(self, Vector2(r.position.x + 8, r.end.y - 16), help, Pal.RED if GameState.call_active() else Pal.DARK)
