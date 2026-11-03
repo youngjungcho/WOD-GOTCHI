@@ -1,0 +1,42 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="WOD-GOTCHI"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.7", "Mobile")
+
+[autoload]
+
+GameState="*res://scripts/game_state.gd"
+Sfx="*res://scripts/sfx.gd"
+
+[display]
+
+window/size/viewport_width=180
+window/size/viewport_height=320
+window/size/window_width_override=540
+window/size/window_height_override=960
+window/stretch/mode="viewport"
+window/stretch/aspect="keep"
+window/stretch/scale_mode="integer"
+window/handheld/orientation=1
+
+[gui]
+
+theme/custom_font="res://assets/fonts/Galmuri9.ttf"
+theme/default_font_antialiasing=0
+theme/default_font_hinting=0
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=false
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method="mobile"
+2d/snap/snap_2d_transforms_to_pixel=true
+2d/snap/snap_2d_vertices_to_pixel=true
+environment/defaults/default_clear_color=Color(0.157, 0.125, 0.125, 1)
