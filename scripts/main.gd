@@ -146,7 +146,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if not k.pressed or top() == null:
 		return
-	# 테스트용 키 (PC): F1 호출, F2 6시간 경과, F3 경험치 +50
+	# 테스트용 키 (PC): F1 호출, F2 6시간 경과(+운동한 날 1일), F3 경험치 +50
 	if GameState.is_created():
 		match k.keycode:
 			KEY_F1:

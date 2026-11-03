@@ -175,7 +175,7 @@ func _finish(ok: bool, why: String = "") -> void:
 		msgs.append("실패... %s" % why)
 		for s in base:
 			xp[s] = base[s] * 0.25
-	msgs.append_array(GameState.apply_workout(xp, 12.0, 6.0))
+	msgs.append_array(GameState.apply_workout(xp, 12.0, 6.0, false))
 	var msg := "\n".join(msgs)
 	# 결과 자세를 잠깐 보여준 뒤 메시지
 	get_tree().create_timer(0.9).timeout.connect(func(): main.say(msg, func(): main.pop()))

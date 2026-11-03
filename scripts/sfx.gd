@@ -34,7 +34,8 @@ func _ready() -> void:
 
 
 func play(name: String) -> void:
-	if not SOUNDS.has(name):
+	# 앱 시작 직후(다른 autoload가 먼저 준비될 때)에는 플레이어가 아직 없다
+	if not SOUNDS.has(name) or _players.is_empty():
 		return
 	if not _cache.has(name):
 		_cache[name] = _build(SOUNDS[name])

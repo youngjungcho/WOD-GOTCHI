@@ -196,6 +196,9 @@ func _run() -> void:
 	print(" / ".join(GameState.train([{"id": "thruster", "reps": 21}, {"id": "pullup", "reps": 21}, {"id": "row", "reps": 15}, {"id": "wallball", "reps": 10}])))
 	print(" / ".join(GameState.train([{"id": "thruster", "reps": 21}])))
 	print("picks=", GameState.daily_picks())
+	for lv in [1, 2, 3, 5, 8, 12]:
+		print("curve Lv", lv, "=", GameState.xp_for_level(lv), " back=", GameState.level_for_xp(GameState.xp_for_level(lv)), " below=", GameState.level_for_xp(GameState.xp_for_level(lv) - 0.01))
+	print("sessions_today=", GameState.sessions_today())
 	# WOD 에디터 + 동작 고르기
 	var ed = WodEditor.new(-1)
 	main.push(ed)
@@ -249,7 +252,7 @@ func _run() -> void:
 	# ---- 진화 ----
 	GameState.data.mental = 80.0
 	GameState.debug_hours(30.0)
-	GameState.debug_xp(30.0)
+	GameState.debug_xp(80.0)
 	await wait(0.5)
 	await shot("evolving")
 	await wait(3.6)
@@ -261,7 +264,7 @@ func _run() -> void:
 	# 스케일드 -> RX(체조 위주)
 	GameState.data.xp.gym = 400.0
 	GameState.debug_hours(48.0)
-	GameState.debug_xp(60.0)
+	GameState.debug_xp(150.0)
 	await wait(0.3)
 	main.top().t = 99.0
 	await wait(0.8)

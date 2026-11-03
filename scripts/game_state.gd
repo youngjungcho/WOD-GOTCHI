@@ -11,8 +11,8 @@ const STAGE_NAMES := ["등록생", "스케일드", "RX", "컴피티터", "게임
 const STAGE_DECAY := [0.5, 0.7, 1.0, 1.2, 1.4]
 const STAGE_FLOOR := [35.0, 25.0, 10.0, 0.0, 0.0]
 const STAGE_DETRAIN := [0.0, 0.0, 0.0, 0.03, 0.05]
-# 다음 단계로 가기 위한 조건: [능력치 레벨 합계, 키운 일수]
-const STAGE_REQ := [[8, 0], [16, 2], [28, 6], [44, 13]]
+# 다음 단계로 가기 위한 조건: [능력치 레벨 합계, 실제로 운동한 날 수]
+const STAGE_REQ := [[12, 2], [20, 5], [32, 12], [48, 25]]
 
 # 시간당 기본 변화량
 const DECAY_PER_HOUR := {"food": 6.0, "energy": 4.0, "mood": 3.0, "cond": 2.0}
@@ -27,6 +27,7 @@ const ATTEMPTS_PER_DAY := 3
 
 var data: Dictionary = {}
 var _accum := 0.0
+var _autosave := 0.0
 
 
 func _ready() -> void:
@@ -43,12 +44,17 @@ func _process(delta: float) -> void:
 		_accum = 0.0
 		_check_calls()
 		changed.emit()
+	# 웹/모바일은 탭을 닫거나 앱이 종료될 때 저장 기회가 없을 수 있어 주기적으로 저장한다
+	_autosave += delta
+	if _autosave >= 20.0:
+		_autosave = 0.0
+		save_game()
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
+	if what in [NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_APPLICATION_FOCUS_OUT]:
 		save_game()
-	elif what == NOTIFICATION_APPLICATION_RESUMED:
+	elif what in [NOTIFICATION_APPLICATION_RESUMED, NOTIFICATION_APPLICATION_FOCUS_IN]:
 		catch_up()
 
 
@@ -198,12 +204,20 @@ func add_gauge(k: String, v: float) -> void:
 	data.gauges[k] = clampf(float(data.gauges[k]) + v, 0.0, 100.0)
 
 
+# 레벨 곡선: Lv까지 필요한 누적 XP = A*(Lv-1)^2 + B*(Lv-1)
+# 초반(Lv2=25)은 무겁게, 후반(Lv12=1265)은 완만하게.
+const CURVE_A := 9.0
+const CURVE_B := 16.0
+
+
 static func level_for_xp(xp: float) -> int:
-	return int(floor(sqrt(max(xp, 0.0) / 10.0))) + 1
+	var n := (-CURVE_B + sqrt(CURVE_B * CURVE_B + 4.0 * CURVE_A * max(xp, 0.0))) / (2.0 * CURVE_A)
+	return int(floor(n + 0.000001)) + 1
 
 
 static func xp_for_level(lv: int) -> float:
-	return 10.0 * pow(lv - 1, 2)
+	var n := float(lv - 1)
+	return CURVE_A * n * n + CURVE_B * n
 
 
 func level(stat: String) -> int:
@@ -219,6 +233,11 @@ func level_sum() -> int:
 
 func days_alive() -> int:
 	return int((now() - float(data.born)) / 86400.0)
+
+
+## 운동한 날 수 (같은 날 여러 번 해도 하루).
+func workout_days() -> int:
+	return (data.get("workout_days", {}) as Dictionary).size()
 
 
 func stage() -> int:
@@ -345,6 +364,10 @@ func _migrate() -> void:
 	for l in LIFTS:
 		if not data.pr.has(l):
 			data.pr[l] = 0.0
+	if not data.has("workout_days"):
+		data.workout_days = {}
+		if not (data.get("move_log", {}) as Dictionary).is_empty():
+			data.workout_days[today()] = true
 	if not data.has("attempts_used"):
 		data.attempts_used = {}
 	if not data.has("hist"):
@@ -471,11 +494,29 @@ func train(moves: Array, extra_xp: Dictionary = {}) -> Array:
 # ---------- 행동 ----------
 
 ## 운동 결과 반영. xp는 {stat: amount}. 결과 메시지 목록을 돌려준다.
-func apply_workout(xp: Dictionary, energy_cost: float, cond_cost: float) -> Array:
+const SESSIONS_FULL := 3  # 하루에 이 횟수까지는 경험치 100%, 이후는 절반
+
+
+## 오늘 한 운동 세션 수.
+func sessions_today() -> int:
+	if data.get("session_day", "") != today():
+		return 0
+	return int(data.get("sessions", 0))
+
+
+## 운동 결과 반영. counts_session=false면 하루 운동 횟수에 넣지 않는다(1RM 시기).
+func apply_workout(xp: Dictionary, energy_cost: float, cond_cost: float, counts_session: bool = true) -> Array:
 	var msgs: Array = []
 	var food_mult := 0.5 if gauge("food") < 20.0 else 1.0
 	if food_mult < 1.0:
 		msgs.append("배가 고파서 효과가 절반이에요.")
+	if counts_session:
+		var n := sessions_today() + 1
+		data.session_day = today()
+		data.sessions = n
+		if n > SESSIONS_FULL:
+			food_mult *= 0.5
+			msgs.append("오늘은 충분히 했어요! 내일 또 와요~ (%d번째, 경험치 절반)" % n)
 	var low_cond := gauge("cond") < 25.0
 	for s in xp.keys():
 		var before := level(s)
@@ -486,6 +527,9 @@ func apply_workout(xp: Dictionary, energy_cost: float, cond_cost: float) -> Arra
 	add_gauge("cond", -cond_cost)
 	add_gauge("food", -energy_cost * 0.3)
 	data.mess = min(3, int(data.mess) + 1)
+	if not data.has("workout_days"):
+		data.workout_days = {}
+	data.workout_days[today()] = true
 	if low_cond and randf() < 0.3:
 		var hours := 2.0 if stage() < 2 else 6.0
 		data.injured_until = now() + hours * 3600.0
@@ -501,7 +545,7 @@ func check_stage_up() -> Array:
 	var msgs: Array = []
 	while stage() < STAGE_NAMES.size() - 1:
 		var req: Array = STAGE_REQ[stage()]
-		if level_sum() >= int(req[0]) and days_alive() >= int(req[1]):
+		if level_sum() >= int(req[0]) and workout_days() >= int(req[1]):
 			data.stage = stage() + 1
 			var old: String = data.get("form", "rookie")
 			data.form = Forms.decide(stage())
@@ -516,7 +560,7 @@ func next_stage_hint() -> String:
 	if stage() >= STAGE_NAMES.size() - 1:
 		return "최고 단계 달성!"
 	var req: Array = STAGE_REQ[stage()]
-	return "다음 단계: 레벨합 %d/%d, %d/%d일" % [level_sum(), req[0], days_alive(), req[1]]
+	return "다음: 레벨합 %d/%d 운동한 날 %d/%d" % [level_sum(), req[0], workout_days(), req[1]]
 
 
 ## 음식 먹이기. 게이지와 능력치 XP가 음식마다 다르게 바뀐다.
@@ -763,7 +807,12 @@ func scold() -> String:
 
 # ---------- 테스트용 ----------
 
+## (테스트) 시간을 h만큼 흘려보낸다. 하루(24시간)마다 운동한 날도 하나씩 쳐준다.
 func debug_hours(h: float) -> void:
+	if not data.has("workout_days"):
+		data.workout_days = {}
+	for i in int(ceil(h / 24.0)):
+		data.workout_days["debug-%d" % data.workout_days.size()] = true
 	data.last_tick = now() - h * 3600.0
 	data.born = float(data.born) - h * 3600.0
 	if call_active():

@@ -68,6 +68,8 @@ func _mood_line() -> String:
 		return "땀이랑 초크가 엉망이에요..."
 	if GameState.gauge("mood") < 25.0:
 		return "운동하기 싫어요... 칭찬해 줘요."
+	if GameState.sessions_today() >= GameState.SESSIONS_FULL:
+		return "오늘 운동은 충분해요. 푹 쉬고 내일 봐요!"
 	if GameState.attempts_left() == GameState.attempts_max() and GameState.stage() >= 1:
 		return "오늘 1RM 도전해 볼까요?"
 	return "오늘도 WOD 하러 가볼까요!"
