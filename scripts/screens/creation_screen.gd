@@ -12,7 +12,7 @@ func _init() -> void:
 		{"label": "운동복", "type": "choice", "value": 0, "options": Pal.OUTFIT_NAMES},
 		{"label": "등록하기", "type": "button", "cb": _register},
 	])
-	top_y = 96.0
+	top_y = 108.0
 
 
 func _look() -> Dictionary:
@@ -31,7 +31,7 @@ func _register() -> void:
 
 
 func _draw_header() -> void:
-	Pal.box_scene(self, Rect2(0, 0, size.x, 94), t)
-	Pal.athlete(self, Vector2(size.x * 0.5 - 24, 14), _look(), "idle", 3, t)
+	Pal.box_scene(self, Rect2(0, 0, size.x, 106), t)
+	Pal.athlete(self, Vector2(size.x * 0.5 - 32, 6), _look(), "idle", 2, t)
 	Pal.window(self, Rect2(4, 4, 62, 18))
 	Pal.text(self, Vector2(10, 7), "NEW 회원!", Pal.RED)

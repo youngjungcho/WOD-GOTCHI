@@ -296,16 +296,16 @@ func _draw() -> void:
 	if _phase().get("type", "") == "balance":
 		o.x += round(sin(t * 18.0) * _wobble * 3.0)
 	var info := _pose_info()
-	Pal.athlete(self, o, GameState.data.look, info.pose, 2, t, info.p, GameState.style())
+	Pal.athlete(self, o, GameState.data.look, info.pose, 1, t, info.p, GameState.style())
 	var plates := clampi(int(weight / 30.0), 1, 5)
 	var bar_y := floor_y - 6
 	match info.bar:
 		"hand":
-			bar_y = o.y + lerpf(20.0, 15.0, info.p) * 2 + 1
+			bar_y = o.y + Chibi.lift_hand_y(info.p)
 		"shoulder":
-			bar_y = o.y + (8 + Pal.squat_crouch(info.p)) * 2 - 1
+			bar_y = o.y + Chibi.shoulder_y(info.p)
 		"over":
-			bar_y = o.y + (-6 + Pal.squat_crouch(info.p)) * 2
+			bar_y = o.y + Chibi.overhead_y(info.p)
 	Pal.barbell(self, Vector2(cx, bar_y), 34, plates)
 	_draw_meter()
 	if t - _note_t < 0.8:

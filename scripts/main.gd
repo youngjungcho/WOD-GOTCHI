@@ -190,11 +190,13 @@ func _release_all() -> void:
 
 func _draw() -> void:
 	# 본체
-	draw_rect(Rect2(0, SCREEN_H, W, H - SCREEN_H), Color("6858a8"))
+	# 파스텔 민트 본체
+	draw_rect(Rect2(0, SCREEN_H, W, H - SCREEN_H), Color("b8e6d8"))
 	draw_rect(Rect2(0, SCREEN_H, W, 2), Pal.INK)
-	draw_rect(Rect2(0, SCREEN_H + 2, W, 1), Color("8878c8"))
-	Pal.text(self, Vector2(8, SCREEN_H + 6), "WOD-GOTCHI", Color("b8b0e8"))
-	Pal.text(self, Vector2(W - 58, SCREEN_H + 6), "COLOR", Color("f0a0a0"))
+	draw_rect(Rect2(0, SCREEN_H + 2, W, 2), Color("dcf5ee"))
+	draw_rect(Rect2(0, H - 4, W, 4), Color("94d0bf"))
+	Pal.text(self, Vector2(8, SCREEN_H + 7), "WOD-GOTCHI", Color("4f9c88"))
+	Pal.icon(self, Vector2(W - 16, SCREEN_H + 8), "heart")
 	for b in BUTTONS:
 		var c: Vector2 = BUTTONS[b]
 		var pressed := _held.has(b)
@@ -203,14 +205,14 @@ func _draw() -> void:
 			var r := Rect2(c - Vector2(16, 6), Vector2(32, 12))
 			draw_rect(Rect2(r.position + Vector2(0, 2), r.size), Pal.INK)
 			draw_rect(Rect2(r.position + off, r.size), Pal.INK)
-			draw_rect(Rect2(r.position + off + Vector2(1, 1), r.size - Vector2(2, 2)), Color("a8a0b8") if not pressed else Color("888098"))
-			Pal.text_center(self, Rect2(c.x - 30, c.y + 9, 60, 12), BTN_LABELS[b], Color("d8d0f8"))
+			draw_rect(Rect2(r.position + off + Vector2(1, 1), r.size - Vector2(2, 2)), Color("c9b8f0") if not pressed else Color("a894d8"))
+			Pal.text_center(self, Rect2(c.x - 30, c.y + 9, 60, 12), BTN_LABELS[b], Color("4f9c88"))
 		else:
 			draw_circle(c + Vector2(0, 2), BTN_RADIUS, Pal.INK)
 			draw_circle(c + off, BTN_RADIUS, Pal.INK)
-			draw_circle(c + off, BTN_RADIUS - 1, Color("c03858") if not pressed else Color("982848"))
-			draw_circle(c + off + Vector2(-5, -5), 4, Color("e06080"))
-			Pal.text_center(self, Rect2(c.x - 20, c.y + BTN_RADIUS + 3, 40, 12), BTN_LABELS[b], Color("d8d0f8"))
+			draw_circle(c + off, BTN_RADIUS - 1, Color("ff8a9a") if not pressed else Color("e8687c"))
+			draw_circle(c + off + Vector2(-5, -5), 4, Color("ffc2cc"))
+			Pal.text_center(self, Rect2(c.x - 20, c.y + BTN_RADIUS + 3, 40, 12), BTN_LABELS[b], Color("4f9c88"))
 
 
 func _draw_toast() -> void:

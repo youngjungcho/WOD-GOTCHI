@@ -59,7 +59,7 @@ func _draw() -> void:
 		var st := Forms.style_of(id).duplicate()
 		if not seen:
 			st.sil = Color(Pal.INK, 0.55)
-		Pal.athlete(self, r.position + Vector2(8, 5), look, "idle", 1, 0.0, 0.0, st)
+		Pal.athlete(self, r.position + Vector2(1, 1), look, "idle", 1, 1.0, 0.0, st, 29)
 	var r2 := Rect2(2, size.y - 44, size.x - 4, 42)
 	Pal.window(self, r2)
 	var cid: String = _ids[cursor]

@@ -280,9 +280,9 @@ func _run() -> void:
 		gallery.draw_rect(Rect2(0, 0, 180, 236), Pal.LIGHT)
 		var i := 0
 		for id in Forms.LIST:
-			var pos := Vector2(4 + (i % 6) * 29, 4 + (i / 6) * 56)
-			Pal.athlete(gallery, pos, GameState.data.look, "idle", 1, 0.0, 0.0, Forms.style_of(id))
-			Pal.text(gallery, pos + Vector2(-2, 28), Forms.name_of(id).left(3), Pal.INK)
+			var pos := Vector2(2 + (i % 5) * 36, 2 + (i / 5) * 46)
+			Pal.athlete(gallery, pos, GameState.data.look, "idle", 1, 1.0, 0.0, Forms.style_of(id), 34)
+			Pal.text(gallery, pos + Vector2(0, 34), Forms.name_of(id).left(3), Pal.INK)
 			i += 1)
 	main.add_child(gallery)
 	await wait(0.2)

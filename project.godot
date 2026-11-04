@@ -40,4 +40,4 @@ renderer/rendering_method="mobile"
 renderer/rendering_method.web="gl_compatibility"
 2d/snap/snap_2d_transforms_to_pixel=true
 2d/snap/snap_2d_vertices_to_pixel=true
-environment/defaults/default_clear_color=Color(0.157, 0.125, 0.125, 1)
+environment/defaults/default_clear_color=Color(0.722, 0.902, 0.847, 1)

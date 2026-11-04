@@ -23,7 +23,7 @@ func _process(delta: float) -> void:
 	_wander -= delta
 	if _wander <= 0.0:
 		_wander = randf_range(2.0, 5.0)
-		_target_x = randf_range(40.0, 140.0)
+		_target_x = randf_range(50.0, 130.0)
 	if not d.sleeping and _pose() == "idle":
 		_x = move_toward(_x, _target_x, delta * 12.0)
 	_check_evolution()
@@ -114,7 +114,7 @@ func _answer_call(give: bool) -> void:
 
 func on_tap(pos: Vector2) -> void:
 	# 캐릭터를 직접 쓰다듬어도 칭찬
-	var char_rect := Rect2(_x - 18, SCENE.position.y + 60, 36, 56)
+	var char_rect := Rect2(_x - 30, SCENE.position.y + 30, 60, 96)
 	if char_rect.has_point(pos):
 		on_button("a", true)
 
@@ -130,14 +130,13 @@ func _draw() -> void:
 	var ttl := GameState.title()
 	Pal.text(self, Vector2(size.x - 4 - Pal.text_width(ttl), 2), ttl, Pal.BLUE)
 	var keys := ["food", "energy", "mood", "cond"]
-	var short := {"food": "밥", "energy": "힘", "mood": "기분", "cond": "몸"}
+	var icons := {"food": "food", "energy": "energy", "mood": "heart", "cond": "cond"}
 	for i in 4:
 		var k: String = keys[i]
 		var x := 3 + i * 44
 		var v := GameState.gauge(k)
-		Pal.text(self, Vector2(x, 15), short[k], Pal.DARK)
-		var lw := Pal.text_width(short[k]) + 2
-		Pal.bar(self, Rect2(x + lw, 17, 42 - lw - 2, 7), v / 100.0, Pal.gauge_color(v))
+		Pal.icon(self, Vector2(x, 16), icons[k])
+		Pal.bar(self, Rect2(x + 9, 17, 32, 6), v / 100.0, Pal.gauge_color(v))
 
 	# 배경
 	Pal.box_scene(self, SCENE, t)
@@ -150,18 +149,27 @@ func _draw() -> void:
 	# 캐릭터
 	var pose := _pose()
 	var cx := 90.0 if pose == "sleep" else _x
-	Pal.athlete(self, Vector2(cx - 16, floor_y - 44), d.look, pose, 2, t, 0.0, GameState.style())
+	# 홈에서는 2배로 크게 (칸 하나 = 2px)
+	var cy := floor_y - 88
+	# 바닥 그림자
+	if pose != "sleep":
+		Pal.round_rect(self, Rect2(cx - 18, floor_y + 4, 36, 4), Color(Pal.INK, 0.12))
+	var st := GameState.style()
 	if GameState.is_injured() and pose != "sleep":
-		draw_rect(Rect2(cx + 4, floor_y - 40, 6, 2), Pal.WHITE)
-	if pose == "tired" and int(t * 2) % 2 == 0:
-		draw_rect(Rect2(cx + 12, floor_y - 40, 2, 3), Pal.BLUE)
-	if pose == "happy":
-		Pal.text(self, Vector2(cx + 14, floor_y - 54), "♪", Pal.RED)
-	if GameState.call_active() and int(t * 3) % 2 == 0:
-		# 머리 위 느낌표 말풍선
-		var b := Rect2(cx + 6, floor_y - 66, 12, 14)
-		Pal.window(self, b)
-		Pal.text(self, b.position + Vector2(4, 2), "!", Pal.RED)
+		st = st.duplicate()
+		st.bandage = true
+	Pal.athlete(self, Vector2(cx - 32, cy), d.look, pose, 2, t, 0.0, st)
+	# 머리 위 감정 말풍선
+	var bp := Vector2(cx + 22, cy - 6 + (int(t * 2) % 2))
+	if GameState.call_active():
+		if int(t * 3) % 2 == 0:
+			Pal.bubble(self, bp, "alert")
+	elif pose == "happy":
+		Pal.bubble(self, bp, "heart")
+	elif pose == "tired":
+		Pal.bubble(self, bp, "sweat")
+	elif pose == "refuse":
+		Pal.bubble(self, bp, "anger")
 	# 밤(자는 중) 효과
 	if d.sleeping:
 		draw_rect(SCENE, Color(Color("202048"), 0.45))

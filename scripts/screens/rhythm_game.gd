@@ -223,18 +223,18 @@ func _draw() -> void:
 		draw_rect(Rect2(20, bar_y, 140, 3), Pal.INK)
 		draw_rect(Rect2(20, bar_y, 3, floor_y - bar_y), Pal.INK)
 		draw_rect(Rect2(157, bar_y, 3, floor_y - bar_y), Pal.INK)
-		var o := Vector2(74, bar_y + 13)
+		var o := Vector2(74, bar_y - Chibi.HANG_HAND_Y + 1)
 		if _fell:
-			Pal.athlete(self, Vector2(74, floor_y - 44), look, "tired", 2, t)
+			Pal.athlete(self, Vector2(74, floor_y - 44), look, "tired", 1, t)
 		elif info.get("mu", false) and _lift_anim > 0.7:
-			Pal.athlete(self, o, look, "support", 2, t, 0.0, muscular)
+			Pal.athlete(self, o, look, "support", 1, t, 0.0, muscular)
 		else:
-			Pal.athlete(self, o, look, "hang", 2, t, _lift_anim, muscular)
+			Pal.athlete(self, o, look, "hang", 1, t, _lift_anim, muscular)
 		draw_rect(Rect2(20, bar_y, 140, 3), Pal.INK)
 	else:
 		# 바닥 동작: 올라갈 때 살짝 뛰는 모습
 		var pose := "tired" if _fell else ("happy" if _lift_anim > 0.6 else "idle")
-		Pal.athlete(self, Vector2(74, floor_y - 44 - _lift_anim * 8.0), look, pose, 2, t, 0.0, muscular)
+		Pal.athlete(self, Vector2(74, floor_y - 44 - _lift_anim * 8.0), look, pose, 1, t, 0.0, muscular)
 
 	# 노트 레인
 	var lane := Rect2(0, LANE_Y - 12, size.x, 24)

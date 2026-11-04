@@ -1,25 +1,25 @@
 class_name Pal
 extends RefCounted
-## GBC 느낌 팔레트와 도트 드로잉 헬퍼. 모든 그래픽은 코드로 그린다.
+## 파스텔 팔레트와 도트 드로잉 헬퍼. 모든 그래픽은 코드로 그린다.
+## 캐릭터는 Chibi(2등신 치비)가 그린다.
 
-const LIGHT := Color("f8f0d8")
-const MID := Color("e0c890")
-const DARK := Color("a07048")
-const INK := Color("282020")
-const WHITE := Color("fcfcf4")
-const RED := Color("d84838")
-const GREEN := Color("58b048")
-const BLUE := Color("4878c8")
-const YELLOW := Color("f0c030")
-const PANTS := Color("383848")
+const LIGHT := Color("fff6e8")  # 크림 배경
+const MID := Color("f2d9b8")  # 연한 선
+const DARK := Color("9c7458")  # 보조 글씨·나무
+const INK := Color("4a3b4a")  # 글씨·외곽선
+const WHITE := Color("fffdf8")
+const RED := Color("ff6f7f")
+const GREEN := Color("62c48a")
+const BLUE := Color("6aa8f0")
+const YELLOW := Color("ffc94d")
+const PINK := Color("ffb3c7")
+const MINT := Color("9fe3d0")
+const PANTS := Color("5a6480")
 
-const SKINS := [Color("f8d0a8"), Color("d8a070"), Color("a06838")]
-const HAIR_COLORS := [Color("383028"), Color("885028"), Color("e0b040"), Color("d05050")]
-const OUTFITS := [Color("3870c8"), Color("c83838"), Color("38a058"), Color("8048b0")]
 const SKIN_NAMES := ["밝은 톤", "중간 톤", "어두운 톤"]
 const HAIR_NAMES := ["짧은 머리", "포니테일", "번 헤어", "스포츠"]
 const HAIR_COLOR_NAMES := ["검정", "갈색", "금발", "빨강"]
-const OUTFIT_NAMES := ["파랑", "빨강", "초록", "보라"]
+const OUTFIT_NAMES := ["하늘", "딸기", "민트", "라벤더"]
 
 static var _font: FontFile
 
@@ -67,22 +67,29 @@ static func frame(ci: CanvasItem, r: Rect2, col: Color) -> void:
 	ci.draw_rect(Rect2(r.position + Vector2(r.size.x - 1, 0), Vector2(1, r.size.y)), col)
 
 
-## 포켓몬 시절 RPG 같은 이중 테두리 창.
+## 둥근 모서리 창 (말풍선 느낌).
 static func window(ci: CanvasItem, r: Rect2, fill: Color = WHITE) -> void:
-	ci.draw_rect(r, INK)
-	ci.draw_rect(r.grow(-1), fill)
-	frame(ci, r.grow(-2), DARK)
-	# 모서리를 깎아 둥근 느낌을 낸다
-	for c in [r.position, r.position + Vector2(r.size.x - 1, 0), r.position + Vector2(0, r.size.y - 1), r.end - Vector2.ONE]:
-		ci.draw_rect(Rect2(c, Vector2.ONE), LIGHT)
+	round_rect(ci, r, INK)
+	round_rect(ci, r.grow(-1), fill)
+	# 안쪽 연한 테두리
+	ci.draw_rect(Rect2(r.position.x + 4, r.position.y + 2, r.size.x - 8, 1), MID)
+	ci.draw_rect(Rect2(r.position.x + 4, r.end.y - 3, r.size.x - 8, 1), MID)
+
+
+## 모서리를 2px 깎은 사각형.
+static func round_rect(ci: CanvasItem, r: Rect2, col: Color) -> void:
+	ci.draw_rect(Rect2(r.position.x + 2, r.position.y, r.size.x - 4, r.size.y), col)
+	ci.draw_rect(Rect2(r.position.x, r.position.y + 2, r.size.x, r.size.y - 4), col)
+	ci.draw_rect(Rect2(r.position.x + 1, r.position.y + 1, r.size.x - 2, r.size.y - 2), col)
 
 
 static func bar(ci: CanvasItem, r: Rect2, ratio: float, col: Color) -> void:
-	ci.draw_rect(r, INK)
-	ci.draw_rect(r.grow(-1), LIGHT)
+	round_rect(ci, r, INK)
+	ci.draw_rect(r.grow(-1), Color("f3e6d6"))
 	var w := floorf((r.size.x - 2) * clampf(ratio, 0.0, 1.0))
 	if w > 0:
 		ci.draw_rect(Rect2(r.position + Vector2.ONE, Vector2(w, r.size.y - 2)), col)
+		ci.draw_rect(Rect2(r.position + Vector2(1, 1), Vector2(w, 1)), col.lightened(0.35))
 
 
 static func gauge_color(v: float) -> Color:
@@ -101,51 +108,116 @@ static func cursor(ci: CanvasItem, pos: Vector2, col: Color = INK) -> void:
 
 # ---------- 배경 ----------
 
-## 크로스핏 박스 실내 배경.
+## 아늑한 크로스핏 박스 실내 배경.
 static func box_scene(ci: CanvasItem, r: Rect2, t: float) -> void:
 	var floor_y := r.position.y + r.size.y * 0.68
-	ci.draw_rect(Rect2(r.position, Vector2(r.size.x, floor_y - r.position.y)), LIGHT)
-	# 벽 벽돌 줄
-	var y := r.position.y + 6
-	var row := 0
-	while y < floor_y - 4:
-		ci.draw_rect(Rect2(r.position.x, y, r.size.x, 1), MID)
-		var x := r.position.x + (0.0 if row % 2 == 0 else 10.0)
-		while x < r.end.x:
-			ci.draw_rect(Rect2(x, y - 6, 1, 6), MID)
-			x += 20
-		y += 7
-		row += 1
-	# 바닥 (고무 매트)
-	ci.draw_rect(Rect2(r.position.x, floor_y, r.size.x, r.end.y - floor_y), DARK)
-	ci.draw_rect(Rect2(r.position.x, floor_y, r.size.x, 2), INK)
-	var mx := r.position.x
-	while mx < r.end.x:
-		ci.draw_rect(Rect2(mx, floor_y + 2, 1, r.end.y - floor_y - 2), Color(INK, 0.35))
-		mx += 30
-	# 화이트보드
+	var wall := Rect2(r.position, Vector2(r.size.x, floor_y - r.position.y))
+	ci.draw_rect(wall, LIGHT)
+	# 벽지 줄무늬
+	var x := r.position.x + 4
+	while x < r.end.x:
+		ci.draw_rect(Rect2(x, wall.position.y, 6, wall.size.y), Color("fdeedd"))
+		x += 16
+	# 걸레받이
+	ci.draw_rect(Rect2(r.position.x, floor_y - 5, r.size.x, 5), Color("f6d6c8"))
+	ci.draw_rect(Rect2(r.position.x, floor_y - 5, r.size.x, 1), Color("eebfae"))
+	# 창문 (하늘과 구름)
+	var win := Rect2(r.position.x + 64, r.position.y + 8, 40, 28)
+	round_rect(ci, win, INK)
+	ci.draw_rect(win.grow(-2), Color("bfe7ff"))
+	var cx := win.position.x + 4 + fmod(t * 2.0, 40.0)
+	ci.draw_rect(Rect2(clampf(cx, win.position.x + 2, win.end.x - 12), win.position.y + 8, 10, 3), WHITE)
+	ci.draw_rect(Rect2(clampf(cx + 2, win.position.x + 2, win.end.x - 8), win.position.y + 6, 6, 2), WHITE)
+	ci.draw_rect(Rect2(win.position.x + 19, win.position.y + 2, 2, win.size.y - 4), Color("fff6e8"))
+	ci.draw_rect(Rect2(win.position.x + 2, win.position.y + 13, win.size.x - 4, 2), Color("fff6e8"))
+	# 화이트보드 (오늘의 WOD)
 	var wb := Rect2(r.position.x + 8, r.position.y + 10, 46, 30)
-	ci.draw_rect(wb, INK)
+	round_rect(ci, wb, INK)
 	ci.draw_rect(wb.grow(-1), WHITE)
 	for i in 4:
-		ci.draw_rect(Rect2(wb.position.x + 4, wb.position.y + 5 + i * 6, 18 + (i * 7) % 16, 1), [BLUE, RED, INK, BLUE][i])
-	ci.draw_rect(Rect2(wb.position.x + 2, wb.end.y, wb.size.x - 4, 2), DARK)
+		ci.draw_rect(Rect2(wb.position.x + 5, wb.position.y + 6 + i * 6, 16 + (i * 7) % 16, 1), [BLUE, RED, INK, GREEN][i])
+	icon(ci, Vector2(wb.end.x - 12, wb.position.y + 4), "heart")
+	ci.draw_rect(Rect2(wb.position.x + 3, wb.end.y, wb.size.x - 6, 2), DARK)
+	# 화분
+	var pot := Vector2(r.position.x + 110, floor_y - 13)
+	ci.draw_rect(Rect2(pot.x, pot.y + 6, 10, 8), INK)
+	ci.draw_rect(Rect2(pot.x + 1, pot.y + 7, 8, 6), Color("ff9f80"))
+	for lf in [Vector2(-3, 0), Vector2(3, -3), Vector2(8, 0), Vector2(2, 2)]:
+		ci.draw_rect(Rect2(pot + lf, Vector2(5, 4)), Color("3f8f62"))
+		ci.draw_rect(Rect2(pot + lf + Vector2(1, 1), Vector2(3, 2)), GREEN)
 	# 풀업 리그
 	var rx := r.end.x - 44
 	ci.draw_rect(Rect2(rx, r.position.y + 8, 3, floor_y - r.position.y - 8), INK)
 	ci.draw_rect(Rect2(rx + 34, r.position.y + 8, 3, floor_y - r.position.y - 8), INK)
+	ci.draw_rect(Rect2(rx + 1, r.position.y + 8, 1, floor_y - r.position.y - 8), Color("8a7a96"))
+	ci.draw_rect(Rect2(rx + 35, r.position.y + 8, 1, floor_y - r.position.y - 8), Color("8a7a96"))
 	ci.draw_rect(Rect2(rx, r.position.y + 14, 37, 2), INK)
-	# 원판 거치대
-	for i in 3:
-		ci.draw_rect(Rect2(r.position.x + 62 + i * 4, floor_y - 18 + i * 2, 3, 18 - i * 2), [RED, BLUE, YELLOW][i])
-		frame(ci, Rect2(r.position.x + 62 + i * 4, floor_y - 18 + i * 2, 3, 18 - i * 2), INK)
+	# 바닥: 나무 + 민트 매트
+	ci.draw_rect(Rect2(r.position.x, floor_y, r.size.x, r.end.y - floor_y), Color("e8c49e"))
+	ci.draw_rect(Rect2(r.position.x, floor_y, r.size.x, 1), Color("c99a72"))
+	var mx := r.position.x + 10
+	while mx < r.end.x:
+		ci.draw_rect(Rect2(mx, floor_y + 1, 1, r.end.y - floor_y - 1), Color("d9b088"))
+		mx += 28
+	var mat := Rect2(r.position.x + 30, floor_y + 6, r.size.x - 60, r.end.y - floor_y - 12)
+	if mat.size.y > 4:
+		round_rect(ci, mat, Color("7cc9b4"))
+		round_rect(ci, mat.grow(-1), MINT)
 	# 케틀벨
-	var kb := Vector2(r.end.x - 26, floor_y - 9)
-	ci.draw_rect(Rect2(kb + Vector2(1, 3), Vector2(8, 7)), INK)
-	ci.draw_rect(Rect2(kb + Vector2(2, 4), Vector2(6, 5)), PANTS)
-	ci.draw_rect(Rect2(kb + Vector2(2, 0), Vector2(6, 1)), INK)
+	var kb := Vector2(r.end.x - 24, floor_y - 9)
+	ci.draw_rect(Rect2(kb + Vector2(1, 3), Vector2(9, 7)), INK)
+	ci.draw_rect(Rect2(kb + Vector2(2, 4), Vector2(7, 5)), PINK)
+	ci.draw_rect(Rect2(kb + Vector2(3, 5), Vector2(2, 1)), WHITE)
+	ci.draw_rect(Rect2(kb + Vector2(2, 0), Vector2(7, 1)), INK)
 	ci.draw_rect(Rect2(kb + Vector2(2, 0), Vector2(1, 4)), INK)
-	ci.draw_rect(Rect2(kb + Vector2(7, 0), Vector2(1, 4)), INK)
+	ci.draw_rect(Rect2(kb + Vector2(8, 0), Vector2(1, 4)), INK)
+
+
+# ---------- 아이콘 ----------
+# k 외곽선, r 빨강, y 노랑, b 갈색, w 흰색, g 초록, t 하늘, p 분홍
+
+const ICONS := {
+	"heart": [".kk.kk.", "krrkrrk", "krwrrrk", "krrrrrk", ".krrrk.", "..krk..", "...k..."],
+	"food": ["..kkk..", ".kbbbk.", "kbbwbbk", "kbbbbbk", ".kbbbk.", "..kwk..", ".kwwk.."],
+	"energy": ["...kkk.", "..kyyk.", ".kyyk..", "kyyyyk.", ".kkyyk.", "..kyk..", "..kk..."],
+	"cond": ["..kkk..", "..kgk..", "kkkgkkk", "kgggggk", "kkkgkkk", "..kgk..", "..kkk.."],
+	"mental": ["..kkk..", ".kpppk.", "kppwppk", "kpppppk", ".kpppk.", "..kpk..", "...k..."],
+	"sweat": ["...t...", "..ttt..", ".ttwtt.", ".ttttt.", "..ttt.."],
+	"anger": [".r.r.", "rr.rr", ".....", "rr.rr", ".r.r."],
+	"note": ["..kkk", "..k.k", "..k.k", "kkk.k", "kkkkk", "kk..."],
+}
+const ICON_COLORS := {"k": INK, "r": RED, "y": YELLOW, "b": Color("c8875a"), "w": WHITE, "g": GREEN, "t": Color("8fd3ff"), "p": PINK}
+
+
+static func icon(ci: CanvasItem, pos: Vector2, name: String, s: int = 1) -> void:
+	var rows: Array = ICONS[name]
+	for y in rows.size():
+		var row: String = rows[y]
+		for x in row.length():
+			var ch := row[x]
+			if ch != ".":
+				ci.draw_rect(Rect2(pos + Vector2(x, y) * s, Vector2(s, s)), ICON_COLORS[ch])
+
+
+## 머리 위 감정 말풍선. kind: heart, note, sweat, anger, alert
+static func bubble(ci: CanvasItem, pos: Vector2, kind: String) -> void:
+	var r := Rect2(pos, Vector2(13, 12))
+	round_rect(ci, r, INK)
+	round_rect(ci, r.grow(-1), WHITE)
+	ci.draw_rect(Rect2(pos + Vector2(2, 12), Vector2(3, 1)), INK)
+	ci.draw_rect(Rect2(pos + Vector2(2, 13), Vector2(1, 1)), INK)
+	match kind:
+		"alert":
+			ci.draw_rect(Rect2(pos + Vector2(5, 2), Vector2(3, 5)), RED)
+			ci.draw_rect(Rect2(pos + Vector2(5, 8), Vector2(3, 2)), RED)
+		"heart":
+			icon(ci, pos + Vector2(3, 3), "heart")
+		"note":
+			icon(ci, pos + Vector2(4, 3), "note")
+		"sweat":
+			icon(ci, pos + Vector2(3, 4), "sweat")
+		"anger":
+			icon(ci, pos + Vector2(4, 4), "anger")
 
 
 ## 바벨. center는 봉의 가운데, plates는 한쪽 원판 개수.
@@ -164,220 +236,12 @@ static func barbell(ci: CanvasItem, center: Vector2, half_len: float, plates: in
 
 # ---------- 캐릭터 ----------
 
-static func _px(ci: CanvasItem, o: Vector2, s: int, x: float, y: float, w: float, h: float, col: Color) -> void:
-	ci.draw_rect(Rect2(o + Vector2(x, y) * s, Vector2(w, h) * s), col)
-
-
-## 1px 외곽선이 있는 박스 (단위 좌표).
-static func _ob(ci: CanvasItem, o: Vector2, s: int, x: float, y: float, w: float, h: float, col: Color) -> void:
-	var r := Rect2(o + Vector2(x, y) * s, Vector2(w, h) * s)
-	ci.draw_rect(r, INK)
-	ci.draw_rect(r.grow(-1), col)
-
-
-## 16x24 단위 캐릭터. o는 좌상단(px), s는 배율.
+## 캐릭터 그리기 (Chibi에 위임). o = 32x48 상자의 왼쪽 위, s = 칸 크기(px).
 ## pose: idle, happy, tired, refuse, sleep, lift(p=0~1 바 높이), hang(p=0~1 당긴 정도), support,
 ##       squat(p=0~1 일어선 정도, 바는 어깨), ohs(p=0~1, 바는 머리 위)
-## style: 진화형 외형 (Forms.LIST[].style). sil 키에 색을 주면 실루엣으로 그린다(진화 연출).
-static func athlete(ci: CanvasItem, o: Vector2, look: Dictionary, pose: String = "idle", s: int = 2, t: float = 0.0, p: float = 0.0, style: Dictionary = {}) -> void:
-	var skin: Color = SKINS[int(look.get("skin", 0))]
-	var hair: Color = HAIR_COLORS[int(look.get("hair_color", 0))]
-	var fit: Color = OUTFITS[int(look.get("outfit", 0))]
-	var pants := PANTS
-	var shoe := WHITE
-	var hair_style := int(look.get("hair", 0))
-	var sil: bool = style.has("sil")
-	if sil:
-		var sc: Color = style.sil
-		skin = sc; hair = sc; fit = sc; pants = sc; shoe = sc
-	o = o.round()
-
-	if pose == "sleep":
-		_athlete_sleep(ci, o, s, skin, hair, fit)
-		return
-
-	var c := 0  # 웅크림 정도
-	var bob := 0
-	var arms := "down"
-	var eyes := "open"
-	var mouth := ""
-	var lift := 0
-	match pose:
-		"idle":
-			bob = int(t * 2.0) % 2
-		"happy":
-			arms = "v"
-			eyes = "happy"
-			mouth = "open"
-			bob = -(int(t * 6.0) % 2)
-		"tired":
-			eyes = "half"
-			c = 1
-		"refuse":
-			arms = "cross"
-			eyes = "half"
-		"lift":
-			c = int(round(lerpf(5.0, 0.0, p)))
-			arms = "bar"
-			eyes = "strain" if p < 0.95 else "happy"
-		"hang":
-			lift = int(round(p * 10.0))
-			arms = "up"
-			eyes = "strain" if p > 0.3 else "open"
-		"support":
-			lift = 15
-			arms = "down"
-			eyes = "happy"
-		"squat":
-			c = squat_crouch(p)
-			arms = "rack"
-			eyes = "strain" if p < 0.95 else "happy"
-		"ohs":
-			c = squat_crouch(p)
-			arms = "up"
-			eyes = "strain" if p < 0.95 else "happy"
-	var body: String = style.get("body", "normal")
-	var hw: int = {"slim": 3, "normal": 4, "wide": 5, "huge": 6, "chubby": 5}.get(body, 4)
-	var arm_w := 4 if body == "huge" else 3
-	var ho := Vector2(0, -lift * s)  # 당길 때 몸 전체가 올라간다
-	var bo := o + ho
-	var hy := bob + c
-	var acc := not sil  # 실루엣일 땐 액세서리 색을 숨긴다
-
-	# 몸 뒤쪽 요소: 망토, 묶은 머리, 올린 팔
-	if style.has("cape") and arms != "up":
-		_ob(ci, bo, s, 8 - hw - 1, 8 + hy, hw * 2 + 2, 13 - c, Color(style.cape) if acc else skin)
-	if hair_style == 1:
-		_ob(ci, bo, s, 11, 1 + hy, 3, 5, hair)
-	elif hair_style == 2:
-		_ob(ci, bo, s, 6, -2 + hy, 4, 3, hair)
-	if arms == "up":
-		_ob(ci, bo, s, 2, -6 + lift + hy, 3, 15 - lift, skin)
-		_ob(ci, bo, s, 11, -6 + lift + hy, 3, 15 - lift, skin)
-	elif arms == "v":
-		_ob(ci, bo, s, 0, -3 + hy, 3, 10, skin)
-		_ob(ci, bo, s, 13, -3 + hy, 3, 10, skin)
-
-	# 다리
-	var leg_top := 15 + c
-	var leg_h := 23 - leg_top
-	var spread := 1 if c > 1 else 0
-	var leg_w := 5 if body == "huge" or body == "chubby" else 4
-	_ob(ci, bo, s, 8 - leg_w - spread, leg_top, leg_w, leg_h, pants)
-	_ob(ci, bo, s, 8 + spread, leg_top, leg_w, leg_h, pants)
-	if style.get("sleeves", false) and acc and leg_h > 4:
-		_px(ci, bo, s, 8 - leg_w - spread, leg_top + leg_h - 4, leg_w, 2, INK)
-		_px(ci, bo, s, 8 + spread, leg_top + leg_h - 4, leg_w, 2, INK)
-	_ob(ci, bo, s, 8 - leg_w - 1 - spread, 22, leg_w + 1, 2, shoe)
-	_ob(ci, bo, s, 8 + spread, 22, leg_w + 1, 2, shoe)
-
-	# 팔 (몸통 옆)
-	if arms == "down" or arms == "cross":
-		_ob(ci, bo, s, 8 - hw - arm_w + 1, 8 + hy, arm_w, 7, skin)
-		_ob(ci, bo, s, 8 + hw - 1, 8 + hy, arm_w, 7, skin)
-		_px(ci, bo, s, 8 - hw - arm_w + 1, 8 + hy, arm_w, 2, fit)
-		_px(ci, bo, s, 8 + hw - 1, 8 + hy, arm_w, 2, fit)
-		if style.get("wrist", false) and acc:
-			_px(ci, bo, s, 8 - hw - arm_w + 1, 13 + hy, arm_w, 1, WHITE)
-			_px(ci, bo, s, 8 + hw - 1, 13 + hy, arm_w, 1, WHITE)
-
-	# 몸통
-	_ob(ci, bo, s, 8 - hw, 8 + hy, hw * 2, 8, fit)
-	if body == "chubby":
-		# 볼록한 배
-		_ob(ci, bo, s, 8 - hw + 1, 11 + hy, hw * 2 - 2, 6, fit)
-		_px(ci, bo, s, 7, 14 + hy, 2, 0.5, Color(INK, 0.4))
-	elif body == "huge" or body == "wide":
-		_px(ci, bo, s, 8 - 0.5, 10 + hy, 1, 0.5, Color(INK, 0.35))
-	if not sil:
-		_px(ci, bo, s, 7, 9 + hy, 2, 1, Color(WHITE, 0.6))
-	if style.get("belt", false) and acc:
-		_px(ci, bo, s, 8 - hw, 14 + hy, hw * 2, 1, Color("6a4020"))
-		_px(ci, bo, s, 7.5, 14 + hy, 1, 1, YELLOW)
-
-	if arms == "bar":
-		var hand_y := lerpf(20.0, 15.0, p)
-		_ob(ci, bo, s, 4, 9 + hy, 2, hand_y - 9 - hy + 1, skin)
-		_ob(ci, bo, s, 10, 9 + hy, 2, hand_y - 9 - hy + 1, skin)
-	elif arms == "cross":
-		_ob(ci, bo, s, 3, 11 + hy, 10, 3, skin)
-	elif arms == "rack":
-		_ob(ci, bo, s, 8 - hw - 1, 7 + hy, 3, 4, skin)
-		_ob(ci, bo, s, 8 + hw - 2, 7 + hy, 3, 4, skin)
-	if style.get("sweat", false) and acc and int(t * 3) % 2 == 0:
-		_px(ci, bo, s, 13, 3 + hy, 1, 1.5, BLUE)
-
-	# 머리
-	_ob(ci, bo, s, 4, 0 + hy, 8, 8, skin)
-	if body == "chubby" and not sil:
-		_px(ci, bo, s, 4.5, 5.5 + hy, 1.5, 1.5, Color("f0a8a0"))
-		_px(ci, bo, s, 10, 5.5 + hy, 1.5, 1.5, Color("f0a8a0"))
-	_ob(ci, bo, s, 4, 0 + hy, 8, 3, hair)
-	match hair_style:
-		0:
-			_px(ci, bo, s, 4, 3 + hy, 1, 2, hair)
-			_px(ci, bo, s, 11, 3 + hy, 1, 2, hair)
-		3:
-			_px(ci, bo, s, 5, -1 + hy, 1, 1, hair)
-			_px(ci, bo, s, 7, -1 + hy, 1, 1, hair)
-			_px(ci, bo, s, 9, -1 + hy, 1, 1, hair)
-	if style.has("headband") and acc:
-		_px(ci, bo, s, 4, 2.5 + hy, 8, 1, Color(style.headband))
-	if style.get("crown", false) and acc:
-		_px(ci, bo, s, 5, -2 + hy, 6, 2, YELLOW)
-		_px(ci, bo, s, 5, -3 + hy, 1, 1, YELLOW)
-		_px(ci, bo, s, 7.5, -3 + hy, 1, 1, YELLOW)
-		_px(ci, bo, s, 10, -3 + hy, 1, 1, YELLOW)
-		_px(ci, bo, s, 7.5, -1.5 + hy, 1, 0.5, RED)
-	if sil:
-		return
-	# 눈
-	match eyes:
-		"open":
-			var blink := fmod(t, 3.0) < 0.12
-			if blink:
-				_px(ci, bo, s, 6, 5 + hy, 1, 0.5, INK)
-				_px(ci, bo, s, 9, 5 + hy, 1, 0.5, INK)
-			else:
-				_px(ci, bo, s, 6, 4 + hy, 1, 2, INK)
-				_px(ci, bo, s, 9, 4 + hy, 1, 2, INK)
-		"happy":
-			_px(ci, bo, s, 5.5, 4.5 + hy, 2, 0.5, INK)
-			_px(ci, bo, s, 8.5, 4.5 + hy, 2, 0.5, INK)
-			_px(ci, bo, s, 5, 6 + hy, 1, 0.5, Color("f08888"))
-			_px(ci, bo, s, 10, 6 + hy, 1, 0.5, Color("f08888"))
-		"half":
-			_px(ci, bo, s, 6, 5 + hy, 1, 1, INK)
-			_px(ci, bo, s, 9, 5 + hy, 1, 1, INK)
-		"strain":
-			_px(ci, bo, s, 5.5, 4 + hy, 2, 0.5, INK)
-			_px(ci, bo, s, 8.5, 4 + hy, 2, 0.5, INK)
-			_px(ci, bo, s, 6, 5 + hy, 1, 0.5, INK)
-			_px(ci, bo, s, 9, 5 + hy, 1, 0.5, INK)
-	if style.get("glasses", false):
-		Pal.frame(ci, Rect2(bo + Vector2(5, 3.5 + hy) * s, Vector2(2.5, 2.5) * s), INK)
-		Pal.frame(ci, Rect2(bo + Vector2(8.5, 3.5 + hy) * s, Vector2(2.5, 2.5) * s), INK)
-		_px(ci, bo, s, 7.5, 4.5 + hy, 1, 0.5, INK)
-	if style.get("bandage", false):
-		_px(ci, bo, s, 9.5, 1.5 + hy, 2, 1, WHITE)
-		_px(ci, bo, s, 10, 1 + hy, 1, 2, WHITE)
-	if mouth == "open":
-		_px(ci, bo, s, 7, 6.5 + hy, 2, 0.5, INK)
-	elif eyes == "strain":
-		_px(ci, bo, s, 6.5, 6.5 + hy, 3, 0.5, INK)
+static func athlete(ci: CanvasItem, o: Vector2, look: Dictionary, pose: String = "idle", s: int = 1, t: float = 0.0, p: float = 0.0, style: Dictionary = {}, clip_rows: int = -1) -> void:
+	Chibi.draw(ci, o, look, pose, s, t, p, style, clip_rows)
 
 
-## 스쿼트 자세의 웅크림 정도(단위). 바 위치 계산에도 쓴다.
 static func squat_crouch(p: float) -> int:
-	return int(round(lerpf(6.0, 0.0, clampf(p, 0.0, 1.0))))
-
-
-static func _athlete_sleep(ci: CanvasItem, o: Vector2, s: int, skin: Color, hair: Color, fit: Color) -> void:
-	# 요가 매트 위에 누운 모습
-	_ob(ci, o, s, -4, 21, 26, 3, Color("70a8d0"))
-	_ob(ci, o, s, 7, 15, 9, 6, fit)
-	_ob(ci, o, s, 15, 16, 8, 5, PANTS)
-	_ob(ci, o, s, -1, 13, 8, 8, skin)
-	_ob(ci, o, s, -1, 13, 3, 8, hair)
-	_px(ci, o, s, 3, 17, 1.5, 0.5, INK)
-	_px(ci, o, s, 3, 15, 1.5, 0.5, INK)
+	return Chibi.squat_crouch(p)
