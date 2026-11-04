@@ -55,7 +55,9 @@ func _mood_line() -> String:
 	if GameState.call_active():
 		return "! " + GameState.call_text()
 	if d.sleeping:
-		return "쿨쿨... (에너지 회복 중)"
+		var eta := GameState.sleep_eta_minutes()
+		var night := " 밤잠x1.5" if GameState.is_night() else ""
+		return "쿨쿨... 완충까지 %d분%s\n(메뉴: 꿈속 퀴즈)" % [eta, night]
 	if GameState.is_injured():
 		return "아야... 부상 회복 중이에요."
 	if GameState.gauge("food") < 25.0:

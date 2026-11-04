@@ -153,16 +153,59 @@ func catch_up() -> void:
 	changed.emit()
 
 
+# ---------- 잠 ----------
+const SLEEP_ENERGY_PER_HOUR := 40.0
+const NIGHT_MULT := 1.5  # 밤(23시~7시)에 자면 회복 1.5배
+
+
+static func is_night() -> bool:
+	var h: int = Time.get_datetime_dict_from_system().hour
+	return h >= 23 or h < 7
+
+
+func sleep_rate() -> float:
+	return SLEEP_ENERGY_PER_HOUR * (NIGHT_MULT if is_night() else 1.0)
+
+
+## 에너지가 가득 찰 때까지 남은 분.
+func sleep_eta_minutes() -> int:
+	return int(ceil((100.0 - gauge("energy")) / sleep_rate() * 60.0))
+
+
+func _wake_up() -> void:
+	data.sleeping = false
+	var night: bool = is_night() or Time.get_datetime_dict_from_system().hour < 9
+	add_gauge("mood", 10.0 if night else 5.0)
+	toast.emit("상쾌한 아침! 푹 잤어요. (기분 +10)" if night else "푹 잤다! 에너지 가득!")
+
+
 func _advance(hours: float, offline: bool) -> void:
+	# 자는 중에 에너지가 다 차면 그 시점에 깨고, 남은 시간은 깨어 있는 것으로 계산
+	if data.sleeping:
+		var need := (100.0 - gauge("energy")) / sleep_rate()
+		if hours > need:
+			_advance_raw(need, offline)
+			_wake_up()
+			if hours - need > 0.0001:
+				_advance_raw(hours - need, offline)
+			return
+	_advance_raw(hours, offline)
+	if data.sleeping and gauge("energy") >= 100.0:
+		_wake_up()
+
+
+func _advance_raw(hours: float, offline: bool) -> void:
 	var st: int = data.stage
 	var mult: float = STAGE_DECAY[st]
 	var g: Dictionary = data.gauges
 	var before := g.duplicate()
 	if data.sleeping:
+		var night := is_night()
 		g.food -= DECAY_PER_HOUR.food * 0.5 * mult * hours
-		g.energy += 14.0 * hours
-		g.cond += 6.0 * hours
-		g.mood -= DECAY_PER_HOUR.mood * 0.3 * mult * hours
+		g.energy += sleep_rate() * hours
+		g.cond += (12.0 if night else 8.0) * hours
+		# 밤잠은 기분도 조금씩 좋아진다
+		g.mood += (2.0 if night else -DECAY_PER_HOUR.mood * 0.3 * mult) * hours
 	else:
 		g.food -= DECAY_PER_HOUR.food * mult * hours
 		g.energy -= DECAY_PER_HOUR.energy * mult * hours
@@ -618,16 +661,61 @@ func toggle_sleep() -> String:
 	var c := _resolve_call(["sleepy", "fake_sleepy"]) if data.sleeping else ""
 	save_game()
 	changed.emit()
-	var msg := "쿨쿨... 잘 자요." if data.sleeping else "기지개 쭉! 일어났어요."
+	var msg := "기지개 쭉! 일어났어요."
+	if data.sleeping:
+		msg = "쿨쿨... 잘 자요. 완충까지 약 %d분" % sleep_eta_minutes()
+		if is_night():
+			msg += "\n밤잠 보너스! 회복 1.5배"
 	return msg + ("\n" + c if c != "" else "")
 
 
-func stretch() -> String:
-	if data.sleeping:
-		return "자는 중이에요."
-	add_gauge("cond", 20); add_gauge("energy", -3)
+## 스트레칭 미니게임 결과. score 0~1 (균형을 잘 잡은 비율). 에너지는 쓰지 않는다.
+func stretch_result(score: float) -> String:
+	add_gauge("cond", 8.0 + 22.0 * score)
+	add_gauge("mood", 3)
+	add_gauge("energy", 2)
+	var lines := ["몸이 풀렸어요! 컨디션 +%d" % int(8.0 + 22.0 * score)]
+	if score >= 0.7:
+		data.xp.tec = float(data.xp.tec) + 2.0
+		lines.append("자세가 좋아요! 기술 +2 XP")
+	lines.append_array(check_stage_up())
+	save_game()
 	changed.emit()
-	return "폼롤러로 쭉쭉~ 몸이 풀렸어요."
+	return "\n".join(lines)
+
+
+# ---------- 퀴즈 ----------
+const QUIZ_FULL := 3  # 하루에 보상을 다 받는 퀴즈 횟수
+
+
+func quiz_left() -> int:
+	if data.get("quiz_day", "") != today():
+		return QUIZ_FULL
+	return maxi(0, QUIZ_FULL - int(data.get("quiz_count", 0)))
+
+
+## 퀴즈 결과 반영. correct = 맞힌 개수(3문제 중).
+func quiz_result(correct: int, total: int) -> String:
+	var full := quiz_left() > 0
+	if data.get("quiz_day", "") != today():
+		data.quiz_day = today()
+		data.quiz_count = 0
+	data.quiz_count = int(data.quiz_count) + 1
+	var lines := ["%d문제 중 %d개 정답!" % [total, correct]]
+	if full:
+		data.xp.tec = float(data.xp.tec) + correct * 2.0
+		add_mental(correct * 1.0)
+		add_gauge("mood", correct * 3.0)
+		if correct > 0:
+			lines.append("기술 +%d XP, 멘탈 +%d" % [correct * 2, correct])
+		lines.append("오늘 보상 남은 횟수: %d" % quiz_left())
+	else:
+		add_gauge("mood", 1)
+		lines.append("오늘 보상은 다 받았어요. (그래도 공부는 좋아요!)")
+	lines.append_array(check_stage_up())
+	save_game()
+	changed.emit()
+	return "\n".join(lines)
 
 
 func clean_up() -> String:

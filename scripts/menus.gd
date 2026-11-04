@@ -10,6 +10,7 @@ static func main_menu(main: Node) -> ListScreen:
 		{"label": "운동하기", "cb": func(): _try_workout(main, func(): main.push(workout_menu(main)))},
 		{"label": "깨우기" if sleeping else "재우기", "cb": func(): _done(main, GameState.toggle_sleep())},
 		{"label": "케어", "cb": func(): main.push(care_menu(main))},
+		{"label": "꿈속 퀴즈" if sleeping else "크로스핏 퀴즈", "cb": func(): main.pop(); main.push(QuizScreen.new())},
 		{"label": "내 WOD 짜기", "cb": func(): main.push(wod_list_menu(main))},
 		{"label": "실제 운동 기록", "cb": func(): main.push(real_menu(main))},
 		{"label": "화이트보드", "cb": func(): main.pop(); main.push(StatsScreen.new())},
@@ -48,7 +49,12 @@ static func _food_list(main: Node, title: String, foods: Dictionary) -> ListScre
 
 static func care_menu(main: Node) -> ListScreen:
 	return ListScreen.new("케어", [
-		{"label": "스트레칭/폼롤러", "cb": func(): _done(main, GameState.stretch())},
+		{"label": "스트레칭 (균형 게임)", "cb": func():
+			if GameState.data.sleeping:
+				main.show_toast("자는 중이에요.")
+				return
+			main.pop_to_root()
+			main.push(StretchGame.new()), "desc": "에너지 없이 컨디션 회복!"},
 		{"label": "땀 닦고 정리하기", "cb": func(): _done(main, GameState.clean_up())},
 	])
 
@@ -64,7 +70,7 @@ static func workout_menu(main: Node) -> ListScreen:
 	}]
 	var wods: Array = GameState.data.wods
 	for w in wods:
-		items.append({"label": "WOD: %s" % w.name, "cb": func(): main.pop_to_root(); main.push(WodRunner.new(w)), "desc": wod_summary(w)})
+		items.append({"label": "WOD: %s" % w.name, "cb": func(): main.pop_to_root(); main.push(WodPlay.new(w)), "desc": wod_summary(w)})
 	var left := GameState.attempts_left()
 	items.append({
 		"label": "1RM 챌린지 (%d/%d)" % [left, GameState.attempts_max()],
@@ -80,7 +86,9 @@ static func wod_summary(w: Dictionary) -> String:
 	var parts := []
 	for m in w.moves:
 		parts.append("%s %d" % [Moves.name_of(m.id), int(m.reps)])
-	return "%d라운드: %s" % [int(w.rounds), ", ".join(parts)]
+	var best := float(w.get("best", 0.0))
+	var rec := "  내 기록 %s" % WodPlay._fmt(best) if best > 0.0 else ""
+	return "%d라운드: %s%s" % [int(w.rounds), ", ".join(parts), rec]
 
 
 static func free_cat_menu(main: Node) -> ListScreen:
@@ -122,11 +130,8 @@ static func free_move_menu(main: Node, cat: String) -> ListScreen:
 
 static func _start_move(main: Node, id: String) -> void:
 	main.pop_to_root()
-	var reps := Moves.default_reps(id)
-	if Moves.is_rhythm(id):
-		main.push(RhythmGame.new(id, reps))
-	else:
-		main.push(MashGame.new(id, reps))
+	# 자유 운동도 1라운드짜리 WOD로 실행한다
+	main.push(WodPlay.new({"name": Moves.name_of(id), "rounds": 1, "moves": [{"id": id, "reps": Moves.default_reps(id)}]}))
 
 
 ## WOD 편집용 동작 고르기. 잠긴 동작도 넣을 수 있다(실행할 때 스케일).
@@ -158,7 +163,7 @@ static func wod_list_menu(main: Node) -> ListScreen:
 static func wod_actions_menu(main: Node, idx: int) -> ListScreen:
 	var w: Dictionary = GameState.data.wods[idx]
 	return ListScreen.new(w.name, [
-		{"label": "지금 하기", "cb": func(): _try_workout(main, func(): main.pop_to_root(); main.push(WodRunner.new(w)))},
+		{"label": "지금 하기", "cb": func(): _try_workout(main, func(): main.pop_to_root(); main.push(WodPlay.new(w)))},
 		{"label": "고치기", "cb": func(): main.pop(); main.pop(); main.push(WodEditor.new(idx))},
 		{"label": "지우기", "cb": func():
 			GameState.data.wods.remove_at(idx)

@@ -144,38 +144,70 @@ func _run() -> void:
 	await wait(0.2)
 	await shot("lift_setup_clean")
 	main.pop_to_root()
-	# 리듬게임 직접 실행 (정확한 타이밍으로 자동 입력)
-	var rg = RhythmGame.new("pullup", 4)
-	main.push(rg)
-	await wait(0.1)
-	for n in rg._notes:
-		while rg._now() < n.t - 0.01:
+	# ---- WOD 자동 플레이: 동작별 조작을 봇이 정확한 타이밍에 입력 ----
+	GameState.data.gauges.energy = 100.0
+	var wod := {"name": "테스트", "rounds": 2, "moves": [{"id": "thruster", "reps": 3}, {"id": "du", "reps": 3}, {"id": "row", "reps": 2}, {"id": "burpee", "reps": 2}, {"id": "t2b", "reps": 2}]}
+	for attempt in 2:
+		var wp = WodPlay.new(wod)
+		main.push(wp)
+		var seen := {}
+		var guard := 0
+		var pacing := false
+		while wp._state != "done" and guard < 6000:
+			guard += 1
 			await get_tree().process_frame
-		await press(n.btn, 0.03)
-		if rg._now() > n.t and rg._reps == 2:
-			await shot("rhythm")
-	await wait(1.5)
-	await shot("rhythm_result")
+			if wp._state != "play" or wp._locked or wp._cool > 0.0:
+				continue
+			var typ: String = wp._inp.type
+			if attempt == 0 and not seen.has(typ):
+				seen[typ] = true
+				await shot("wod_" + typ)
+			# 심박 관리: 80을 넘으면 손을 떼고 50까지 쉰다
+			if wp._hr > 80.0:
+				pacing = true
+			if pacing:
+				if wp._hr < 50.0:
+					pacing = false
+				continue
+			match typ:
+				"power":
+					if absf(wp._cursor - 0.5) < 0.04:
+						await press("a", 0.01)
+				"rope":
+					if absf(fmod(wp._rope, 1.0) - 0.5) < 0.04 and not wp._rope_hit:
+						await press("a", 0.01)
+				"cadence":
+					if wp._clock - wp._last_stroke >= float(wp._inp.interval):
+						await press(wp._next_btn, 0.01)
+				"combo":
+					await press(wp._inp.seq[wp._step], 0.01)
+					await wait(0.08)
+				"beat":
+					var nt: float = wp._beat_t0 + wp._beat_n * wp._beat_len()
+					var want: String = wp._pat[wp._beat_n % wp._pat.size()]
+					if want != "" and absf(wp._clock - nt) < 0.03:
+						await press(want, 0.01)
+		print("wod attempt ", attempt, " time=", snappedf(wp._clock, 0.1), " rival=", snappedf(wp._rival_time, 0.1), " best=", wod.get("best"), " done=", wp._done)
+		await wait(2.0)
+		if attempt == 0:
+			await shot("wod_result")
+		await press("a"); await wait(0.1); await press("a"); await wait(0.1); await press("a")
+		await wait(0.3)
+		main.pop_to_root()
+	# 심박 100 → 강제 휴식 확인
+	var wp2 = WodPlay.new({"name": "연타", "rounds": 1, "moves": [{"id": "burpee", "reps": 30}]})
+	main.push(wp2)
+	await wait(2.6)
+	for i in 60:
+		await press(wp2._inp.seq[wp2._step], 0.005)
+		if wp2._locked:
+			break
+	await shot("wod_locked")
+	print("locked=", wp2._locked, " hr=", wp2._hr)
+	await press("menu")
+	await wait(2.0)
 	await press("a"); await wait(0.1); await press("a")
-	await wait(0.3)
-	print("rhythm_best=", GameState.data.rhythm_best)
-	# WOD 실행
-	main.push(WodRunner.new({"name": "테스트", "rounds": 1, "moves": [{"id": "burpee", "reps": 2}, {"id": "muscleup", "reps": 3}]}))
-	await wait(0.5)
-	await shot("wod_start")
-	await press("a"); await press("a")
-	await wait(0.2)
-	await shot("wod_mash")
-	for i in 6:
-		await press("a")
-	await wait(0.3)
-	await shot("wod_after_mash")
-	print("top=", main.top().get_script().get_global_name())
-	# 머슬업이 잠겨 있으니 풀업으로 스케일 되었어야 함 -> 리듬 3개 대충 놓쳐서 떨어지게
-	await wait(8.0)
-	await shot("wod_result")
-	await press("a"); await wait(0.1); await press("a"); await wait(0.1); await press("a")
-	await wait(0.3)
+	main.pop_to_root()
 	# 자유 운동: 카테고리 -> 동작 목록
 	main.push(Menus.free_cat_menu(main))
 	await wait(0.2)
@@ -184,14 +216,6 @@ func _run() -> void:
 	await wait(0.2)
 	await shot("free_barbell")
 	main.pop_to_root()
-	# 리듬 패턴 여러 개 차트 생성 확인
-	for id in ["t2b", "muscleup", "rope", "shspu", "butterfly", "pistol"]:
-		var g = RhythmGame.new(id, 3)
-		var reps := 0
-		for n in g._notes:
-			if n.rep: reps += 1
-		print(id, " notes=", g._notes.size(), " reps=", reps)
-		g.free()
 	# 여러 영역 섞은 WOD 결과 (다양성 보너스)
 	print(" / ".join(GameState.train([{"id": "thruster", "reps": 21}, {"id": "pullup", "reps": 21}, {"id": "row", "reps": 15}, {"id": "wallball", "reps": 10}])))
 	print(" / ".join(GameState.train([{"id": "thruster", "reps": 21}])))
@@ -292,9 +316,46 @@ func _run() -> void:
 	await wait(0.2)
 	await shot("dex")
 	main.pop()
+	# ---- 잠: 회복 속도와 자동 기상 ----
+	GameState.data.gauges.energy = 40.0
 	GameState.data.sleeping = true
+	print("sleep eta=", GameState.sleep_eta_minutes(), "min rate=", GameState.sleep_rate())
 	await wait(0.3)
 	await shot("sleeping")
+	# 꿈속 퀴즈
+	main.push(QuizScreen.new())
+	await wait(0.3)
+	await shot("quiz_dream")
+	for i in 3:
+		await press("b"); await wait(0.2)
+		if i == 0:
+			await shot("quiz_answer")
+		await press("a"); await wait(0.2)
+	await wait(0.3)
+	await shot("quiz_result")
+	await press("a"); await wait(0.1); await press("a")
+	main.pop_to_root()
+	GameState._advance(2.0, true)
+	print("after 2h sleep: sleeping=", GameState.data.sleeping, " energy=", GameState.gauge("energy"))
+	# 스트레칭 균형 게임: 봇이 가운데를 유지
+	GameState.data.gauges.cond = 30.0
+	var sg = StretchGame.new()
+	main.push(sg)
+	while not sg._ended:
+		await get_tree().process_frame
+		var want_a: bool = sg._m > 0.05 or sg._v > 0.3
+		var want_b: bool = sg._m < -0.05 or sg._v < -0.3
+		if want_a != sg._hold_a:
+			main._press("a", want_a, -1)
+		if want_b != sg._hold_b:
+			main._press("b", want_b, -1)
+		if sg._clock > 5.0 and sg._clock < 5.05:
+			await shot("stretch")
+	main._press("a", false, -1); main._press("b", false, -1)
+	print("stretch in_zone=", snappedf(sg._in_zone, 0.1), " cond=", GameState.gauge("cond"))
+	await wait(0.3)
+	await press("a"); await wait(0.1); await press("a")
+	main.pop_to_root()
 	print("DONE gauges=", GameState.data.gauges, " stage=", GameState.data.stage)
 	GameState.reset_game()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Forms.DEX_PATH))

@@ -167,3 +167,50 @@ static func describe(id: String) -> String:
 	else:
 		line2 = GameState.variety_label(id)
 	return "1회당 " + " ".join(parts) + "\n" + line2
+
+
+# ---------- WOD 조작 방식 ----------
+# power   : 파워 게이지를 초록에 맞춰 A (바벨·케틀벨)
+# rope    : 줄이 발밑에 올 때 A (줄넘기), speed = 초당 회전
+# cadence : A·B를 일정한 간격으로 교대 (머신·달리기), 스트로크 2번 = 1회
+# combo   : 정해진 버튼 순서 입력 (버피·박스점프·맨몸)
+# beat    : 박자에 맞춰 패턴 입력 (체조, rhythm 패턴 사용)
+
+const COMBOS := {
+	"burpee": ["a", "b", "a"], "bfb": ["a", "b", "a"], "burpeebox": ["a", "b", "a", "b"],
+	"boxjump": ["a", "b"], "bjo": ["a", "b"], "devilpress": ["a", "b", "a"], "tgu": ["a", "b", "a", "b"],
+	"wallball": ["b", "a"], "airsquat": ["a", "b"], "pushup": ["a", "b"], "situp": ["a", "b"],
+	"ghd": ["a", "b"], "ringrow": ["a", "b"],
+}
+const ROPE_SPEED := {"su": 1.4, "du": 2.0, "tu": 2.6}
+const CADENCE := {"row": 0.45, "bike": 0.35, "ski": 0.45, "run": 0.32, "shuttle": 0.3, "farmer": 0.4, "sled": 0.5}
+
+
+static func input_of(id: String) -> Dictionary:
+	if COMBOS.has(id):
+		return {"type": "combo", "seq": COMBOS[id]}
+	if ROPE_SPEED.has(id):
+		return {"type": "rope", "speed": ROPE_SPEED[id]}
+	if CADENCE.has(id):
+		return {"type": "cadence", "interval": CADENCE[id]}
+	if is_rhythm(id):
+		return {"type": "beat"}
+	return {"type": "power", "speed": 0.9 + 0.2 * int(LIST[id].get("taps", 2))}
+
+
+## 라이벌이 1회에 쓰는 시간(초) 기준값.
+static func rival_sec_per_rep(id: String) -> float:
+	var inp := input_of(id)
+	match inp.type:
+		"combo":
+			return 0.45 * inp.seq.size() + 0.3
+		"rope":
+			return 1.0 / float(inp.speed) + 0.15
+		"cadence":
+			return float(inp.interval) * 2.0 + 0.1
+		"beat":
+			var rh: Dictionary = LIST[id].rhythm
+			var n := String(rh.pat).length()
+			var per := n if not rh.get("each", false) else 1
+			return per * 60.0 / float(rh.bpm) + 0.3
+	return 1.4
