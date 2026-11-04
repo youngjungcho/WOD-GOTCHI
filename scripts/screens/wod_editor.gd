@@ -1,19 +1,25 @@
 class_name WodEditor
 extends FormScreen
-## WOD 직접 짜기: 이름, 라운드, 동작 최대 4개와 횟수.
+## WOD 직접 짜기: 이름, 방식(For Time/AMRAP/EMOM), 시간, 라운드, 동작 최대 4개와 횟수.
 ## 동작 칸을 누르면 카테고리별 동작 목록이 열린다.
 
 const SLOTS := 4
+const TYPES := ["fortime", "amrap", "emom"]
+const FIRST_MOVE_ROW := 4
 
 var _idx: int
 
 
 func _init(idx: int) -> void:
 	_idx = idx
-	var w: Dictionary = GameState.data.wods[idx] if idx >= 0 else {"name": "내 WOD", "rounds": 3, "moves": []}
+	var w: Dictionary = GameState.data.wods[idx] if idx >= 0 else {"name": "내 WOD", "type": "fortime", "rounds": 3, "cap": 10, "moves": []}
+	var wtype: String = w.get("type", "fortime")
+	var minutes: float = float(w.get("minutes", w.get("cap", 10)))
 	var r := [
 		{"label": "이름", "type": "text", "value": w.name, "max_len": 8},
-		{"label": "라운드", "type": "number", "value": float(w.rounds), "min": 1.0, "max": 10.0, "step": 1.0},
+		{"label": "방식", "type": "choice", "value": TYPES.find(wtype), "options": ["FOR TIME", "AMRAP", "EMOM"]},
+		{"label": "시간(분)", "type": "number", "value": minutes, "min": 3.0, "max": 30.0, "step": 1.0, "fmt": "%s분"},
+		{"label": "라운드", "type": "number", "value": float(w.get("rounds", 3)), "min": 1.0, "max": 10.0, "step": 1.0},
 	]
 	for i in SLOTS:
 		var m: Dictionary = w.moves[i] if i < w.moves.size() else {"id": "none", "reps": 10}
@@ -23,6 +29,7 @@ func _init(idx: int) -> void:
 		r.append({"label": "  횟수", "type": "number", "value": float(m.reps), "min": 1.0, "max": 100.0, "step": 1.0})
 	r.append({"label": "저장하기", "type": "button", "cb": _save})
 	super("WOD 짜기", r)
+	row_h = 13
 
 
 func _show_move(id: String) -> String:
@@ -34,9 +41,9 @@ func _show_move(id: String) -> String:
 func _moves() -> Array:
 	var moves := []
 	for i in SLOTS:
-		var id: String = value(2 + i * 2)
+		var id: String = value(FIRST_MOVE_ROW + i * 2)
 		if id != "none":
-			moves.append({"id": id, "reps": int(value(3 + i * 2))})
+			moves.append({"id": id, "reps": int(value(FIRST_MOVE_ROW + 1 + i * 2))})
 	return moves
 
 
@@ -46,7 +53,13 @@ func _save() -> void:
 		main.show_toast("동작을 하나 이상 넣어주세요.")
 		return
 	var n := str(value(0)).strip_edges()
-	var w := {"name": n if n != "" else "내 WOD", "rounds": int(value(1)), "moves": moves}
+	var wtype: String = TYPES[int(value(1))]
+	var w := {"name": n if n != "" else "내 WOD", "type": wtype, "rounds": int(value(3)), "moves": moves}
+	# For Time은 시간이 타임캡, AMRAP·EMOM은 진행 시간
+	if wtype == "fortime":
+		w.cap = int(value(2))
+	else:
+		w.minutes = int(value(2))
 	if _idx >= 0:
 		GameState.data.wods[_idx] = w
 	else:
@@ -65,7 +78,7 @@ func _draw() -> void:
 		cats[Moves.LIST[m.id].cat] = true
 		var per := Moves.xp_per_rep(Moves.scaled(m.id))
 		for s in per:
-			xp[s] = float(xp.get(s, 0.0)) + per[s] * int(m.reps) * int(value(1))
+			xp[s] = float(xp.get(s, 0.0)) + per[s] * int(m.reps) * int(value(3))
 	var y := size.y - 23
 	draw_rect(Rect2(2, y - 2, size.x - 4, 25), Pal.WHITE)
 	Pal.frame(self, Rect2(2, y - 2, size.x - 4, 25), Pal.INK)

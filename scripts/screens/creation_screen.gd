@@ -15,6 +15,18 @@ func _init() -> void:
 	top_y = 108.0
 
 
+func _back_rect() -> Rect2:
+	return Rect2(-100, -100, 0, 0)
+
+
+func _back() -> void:
+	pass
+
+
+func button_labels() -> Dictionary:
+	return {"a": "다음줄", "b": "바꾸기", "menu": "-"}
+
+
 func _look() -> Dictionary:
 	return {"skin": value(1), "hair": value(2), "hair_color": value(3), "outfit": value(4)}
 

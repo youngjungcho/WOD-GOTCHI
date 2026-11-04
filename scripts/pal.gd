@@ -109,8 +109,8 @@ static func cursor(ci: CanvasItem, pos: Vector2, col: Color = INK) -> void:
 # ---------- 배경 ----------
 
 ## 아늑한 크로스핏 박스 실내 배경.
-static func box_scene(ci: CanvasItem, r: Rect2, t: float) -> void:
-	var floor_y := r.position.y + r.size.y * 0.68
+static func box_scene(ci: CanvasItem, r: Rect2, t: float, floor_ratio: float = 0.68) -> void:
+	var floor_y := r.position.y + r.size.y * floor_ratio
 	var wall := Rect2(r.position, Vector2(r.size.x, floor_y - r.position.y))
 	ci.draw_rect(wall, LIGHT)
 	# 벽지 줄무늬
@@ -185,6 +185,11 @@ const ICONS := {
 	"sweat": ["...t...", "..ttt..", ".ttwtt.", ".ttttt.", "..ttt.."],
 	"anger": [".r.r.", "rr.rr", ".....", "rr.rr", ".r.r."],
 	"note": ["..kkk", "..k.k", "..k.k", "kkk.k", "kkkkk", "kk..."],
+	"dumbbell": ["r.....r", "rr...rr", "rrkkkrr", "rr...rr", "r.....r"],
+	"moon": ["..yyy..", ".yy....", "yy.....", "yy.....", "yy.....", ".yy....", "..yyy.."],
+	"sun": ["...y...", ".y.y.y.", "..yyy..", "yyyyyyy", "..yyy..", ".y.y.y.", "...y..."],
+	"quiz": [".kkkk.", "k....k", "....k.", "...k..", "...k..", "......", "...k.."],
+	"more": ["kk.kk.kk", "kk.kk.kk"],
 }
 const ICON_COLORS := {"k": INK, "r": RED, "y": YELLOW, "b": Color("c8875a"), "w": WHITE, "g": GREEN, "t": Color("8fd3ff"), "p": PINK}
 

@@ -58,7 +58,8 @@ func top() -> Screen:
 
 
 func push(s: Screen) -> void:
-	if top() and not s.overlay:
+	# 덮어 그리는 화면이라도, 메뉴 위에 메뉴를 열 때는 이전 메뉴 창을 숨긴다
+	if top() and (not s.overlay or (top() is ListScreen and s is ListScreen) or (top() is FormScreen and s is ListScreen)):
 		top().visible = false
 	s.main = self
 	s.size = Vector2(W, SCREEN_H)
@@ -197,22 +198,34 @@ func _draw() -> void:
 	draw_rect(Rect2(0, H - 4, W, 4), Color("94d0bf"))
 	Pal.text(self, Vector2(8, SCREEN_H + 7), "WOD-GOTCHI", Color("4f9c88"))
 	Pal.icon(self, Vector2(W - 16, SCREEN_H + 8), "heart")
+	var hints: Dictionary = top().button_hints() if top() else {}
+	var labels: Dictionary = top().button_labels() if top() else {}
 	for b in BUTTONS:
 		var c: Vector2 = BUTTONS[b]
 		var pressed := _held.has(b)
 		var off := Vector2(0, 1) if pressed else Vector2.ZERO
+		# 눌러야 할 버튼: 은은한 테두리, 타이밍이 맞으면 반짝이는 테두리와 화살표
+		var h := int(hints.get(b, 0))
+		if h > 0 and b != "menu":
+			var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 90.0)
+			var ring := Color(Pal.YELLOW, 0.45) if h == 1 else Color(Pal.YELLOW, 0.7 + 0.3 * pulse)
+			draw_circle(c, BTN_RADIUS + (3 if h == 1 else 4 + pulse * 2), ring)
+			if h == 2:
+				var ay := c.y - BTN_RADIUS - 13 - pulse * 2
+				for i in 5:
+					draw_rect(Rect2(c.x - 4 + i, ay + i, 9 - i * 2, 1), Pal.RED)
 		if b == "menu":
 			var r := Rect2(c - Vector2(16, 6), Vector2(32, 12))
 			draw_rect(Rect2(r.position + Vector2(0, 2), r.size), Pal.INK)
 			draw_rect(Rect2(r.position + off, r.size), Pal.INK)
 			draw_rect(Rect2(r.position + off + Vector2(1, 1), r.size - Vector2(2, 2)), Color("c9b8f0") if not pressed else Color("a894d8"))
-			Pal.text_center(self, Rect2(c.x - 30, c.y + 9, 60, 12), BTN_LABELS[b], Color("4f9c88"))
+			Pal.text_center(self, Rect2(c.x - 30, c.y + 9, 60, 12), labels.get(b, BTN_LABELS[b]), Color("4f9c88"))
 		else:
 			draw_circle(c + Vector2(0, 2), BTN_RADIUS, Pal.INK)
 			draw_circle(c + off, BTN_RADIUS, Pal.INK)
 			draw_circle(c + off, BTN_RADIUS - 1, Color("ff8a9a") if not pressed else Color("e8687c"))
 			draw_circle(c + off + Vector2(-5, -5), 4, Color("ffc2cc"))
-			Pal.text_center(self, Rect2(c.x - 20, c.y + BTN_RADIUS + 3, 40, 12), BTN_LABELS[b], Color("4f9c88"))
+			Pal.text_center(self, Rect2(c.x - 26, c.y + BTN_RADIUS + 3, 52, 12), labels.get(b, BTN_LABELS[b]), Color("4f9c88"))
 
 
 func _draw_toast() -> void:

@@ -5,7 +5,7 @@ extends Screen
 ## rows: {label, type: "choice"|"number"|"text"|"button"|"pick", value, options, min, max, step, fmt, cb}
 ## pick: 값 표시는 show(value) 콜백, 누르면 cb 호출(보통 고르기 메뉴를 연다)
 
-const ROW_H := 15
+var row_h := 15  # 줄 높이 (줄이 많은 폼은 줄인다)
 
 var title: String
 var rows: Array
@@ -40,12 +40,20 @@ func _ready() -> void:
 			_edits[i] = le
 
 
+func button_labels() -> Dictionary:
+	return {"a": "다음줄", "b": "바꾸기", "menu": "뒤로"}
+
+
+func _back_rect() -> Rect2:
+	return Rect2(6, top_y + 3, 36, 16)
+
+
 func value(i: int) -> Variant:
 	return rows[i].value
 
 
 func _row_rect(i: int) -> Rect2:
-	return Rect2(6, top_y + 20 + i * ROW_H, size.x - 12, ROW_H)
+	return Rect2(6, top_y + 20 + i * row_h, size.x - 12, row_h)
 
 
 func _value_rect(i: int) -> Rect2:
@@ -103,6 +111,9 @@ func on_dir(d: Vector2i) -> void:
 
 
 func on_tap(pos: Vector2) -> void:
+	if _back_rect().grow(3).has_point(pos):
+		_back()
+		return
 	for i in rows.size():
 		if _row_rect(i).has_point(pos):
 			cursor = i
@@ -131,9 +142,12 @@ func _fmt(row: Dictionary) -> String:
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Pal.LIGHT)
 	_draw_header()
-	var box := Rect2(2, top_y, size.x - 4, 26 + rows.size() * ROW_H)
+	var box := Rect2(2, top_y, size.x - 4, 26 + rows.size() * row_h)
 	Pal.window(self, box)
-	Pal.text(self, box.position + Vector2(8, 5), title, Pal.DARK)
+	var br := _back_rect()
+	Pal.round_rect(self, br, Pal.MID)
+	Pal.text(self, br.position + Vector2(3, 2), "◀뒤로", Pal.INK)
+	Pal.text(self, Vector2(br.end.x + 6, box.position.y + 5), title, Pal.DARK)
 	for i in rows.size():
 		var row: Dictionary = rows[i]
 		var r := _row_rect(i)
@@ -159,9 +173,6 @@ func _draw() -> void:
 		Pal.text(self, vr.position + Vector2(0, 2), "◀", Pal.DARK)
 		Pal.text_center(self, Rect2(vr.position.x + 8, vr.position.y + 1, vr.size.x - 16, 13), _fmt(row))
 		Pal.text(self, Vector2(vr.end.x - 8, vr.position.y + 2), "▶", Pal.DARK)
-	var hy := box.end.y + 4
-	if hy < size.y - 14:
-		Pal.text(self, Vector2(6, hy), "A 다음줄  B 바꾸기  메뉴 뒤로", Pal.DARK)
 
 
 ## 하위 클래스용. 폼 위쪽에 그림을 그린다.

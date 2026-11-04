@@ -3,6 +3,10 @@ extends Screen
 ## 화이트보드: 능력치, 게이지, 기록을 보여준다. 아무 버튼이나 누르면 닫힌다.
 
 
+func button_labels() -> Dictionary:
+	return {"a": "닫기", "b": "닫기", "menu": "뒤로"}
+
+
 func on_button(_btn: String, down: bool) -> void:
 	if down:
 		Sfx.play("back")

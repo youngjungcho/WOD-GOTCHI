@@ -3,7 +3,12 @@ extends Screen
 ## 메인 화면: 캐릭터를 돌보는 곳. A=칭찬, B=상태, 메뉴=행동 메뉴.
 ## 호출 중일 때는 A=들어주기, B=단호하게.
 
-const SCENE := Rect2(0, 30, 180, 136)
+const SCENE := Rect2(0, 30, 180, 116)
+const FLOOR_RATIO := 0.78
+const BAR_Y := 147.0  # 바로가기 아이콘 줄
+const QUICK := [
+	["food", "밥"], ["dumbbell", "운동"], ["moon", "잠"], ["cond", "케어"], ["quiz", "퀴즈"], ["more", "메뉴"],
+]
 
 var _x := 90.0
 var _target_x := 90.0
@@ -77,6 +82,34 @@ func _mood_line() -> String:
 	return "오늘도 WOD 하러 가볼까요!"
 
 
+func button_labels() -> Dictionary:
+	if GameState.call_active():
+		return {"a": "들어주기", "b": "단호하게", "menu": "메뉴"}
+	return {"a": "칭찬", "b": "상태", "menu": "메뉴"}
+
+
+func _quick_rect(i: int) -> Rect2:
+	return Rect2(2 + i * 29.5, BAR_Y, 28, 23)
+
+
+## 바로가기 아이콘 눌렀을 때.
+func _quick(i: int) -> void:
+	Sfx.play("select")
+	match i:
+		0:
+			main.push(Menus.food_menu(main))
+		1:
+			Menus._try_workout(main, func(): main.push(Menus.workout_menu(main)))
+		2:
+			main.say(GameState.toggle_sleep())
+		3:
+			main.push(Menus.care_menu(main))
+		4:
+			main.push(QuizScreen.new())
+		5:
+			main.push(Menus.main_menu(main))
+
+
 func on_resume() -> void:
 	queue_redraw()
 
@@ -115,8 +148,12 @@ func _answer_call(give: bool) -> void:
 
 
 func on_tap(pos: Vector2) -> void:
+	for i in QUICK.size():
+		if _quick_rect(i).has_point(pos):
+			_quick(i)
+			return
 	# 캐릭터를 직접 쓰다듬어도 칭찬
-	var char_rect := Rect2(_x - 30, SCENE.position.y + 30, 60, 96)
+	var char_rect := Rect2(_x - 30, SCENE.position.y + 10, 60, 80)
 	if char_rect.has_point(pos):
 		on_button("a", true)
 
@@ -141,8 +178,8 @@ func _draw() -> void:
 		Pal.bar(self, Rect2(x + 9, 17, 32, 6), v / 100.0, Pal.gauge_color(v))
 
 	# 배경
-	Pal.box_scene(self, SCENE, t)
-	var floor_y := SCENE.position.y + SCENE.size.y * 0.68
+	Pal.box_scene(self, SCENE, t, FLOOR_RATIO)
+	var floor_y := SCENE.position.y + SCENE.size.y * FLOOR_RATIO
 	# 땀/초크 자국
 	for i in int(d.mess):
 		var mx := 20.0 + i * 52.0
@@ -179,9 +216,24 @@ func _draw() -> void:
 		Pal.text(self, Vector2(cx + 8 + zt * 6, floor_y - 30 - zt * 10), "Z", Pal.WHITE)
 		Pal.text(self, Vector2(cx + 18 + zt * 4, floor_y - 44 - zt * 8), "z", Pal.WHITE)
 
+	# 바로가기 아이콘 줄
+	draw_rect(Rect2(0, BAR_Y - 1, size.x, 25), Color("fdeedd"))
+	for i in QUICK.size():
+		var q: Array = QUICK[i]
+		var qr := _quick_rect(i)
+		Pal.round_rect(self, qr, Pal.INK)
+		Pal.round_rect(self, qr.grow(-1), Pal.WHITE)
+		var ic: String = q[0]
+		var lbl: String = q[1]
+		if i == 2 and d.sleeping:
+			ic = "sun"
+			lbl = "기상"
+		var iw: int = (Pal.ICONS[ic][0] as String).length()
+		Pal.icon(self, Vector2(qr.position.x + (qr.size.x - iw) * 0.5, qr.position.y + 2), ic)
+		Pal.text_center(self, Rect2(qr.position.x - 2, qr.position.y + 11, qr.size.x + 4, 11), lbl, Pal.INK)
 	# 대화창
-	var r := Rect2(2, SCENE.end.y + 2, size.x - 4, size.y - SCENE.end.y - 4)
+	var r := Rect2(2, BAR_Y + 25, size.x - 4, size.y - BAR_Y - 27)
 	Pal.window(self, r)
 	Pal.text_wrap(self, r.position + Vector2(8, 6), _mood_line(), r.size.x - 16, Pal.INK, 10, 2)
-	var help := "A 들어주기  B 단호하게" if GameState.call_active() else "A 칭찬  B 상태  메뉴 행동"
-	Pal.text(self, Vector2(r.position.x + 8, r.end.y - 16), help, Pal.RED if GameState.call_active() else Pal.DARK)
+	if GameState.call_active():
+		Pal.text(self, Vector2(r.position.x + 8, r.end.y - 16), "A 들어주기  B 단호하게", Pal.RED)

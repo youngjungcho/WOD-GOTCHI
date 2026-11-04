@@ -96,9 +96,7 @@ func new_character(name: String, look: Dictionary) -> void:
 		"attempt_day": "",
 		"attempts_used": {},
 		"real": {"checkin_day": "", "prs": {"deadlift": 0, "squat": 0, "clean": 0, "snatch": 0, "pullup": 0}},
-		"wods": [
-			{"name": "첫 WOD", "rounds": 3, "moves": [{"id": "pullup", "reps": 5}, {"id": "deadlift", "reps": 5}, {"id": "burpee", "reps": 5}]},
-		],
+		"wods": [],
 	}
 	Forms.register("rookie", name)
 	save_game()
@@ -151,6 +149,24 @@ func catch_up() -> void:
 	_check_calls()
 	save_game()
 	changed.emit()
+
+
+# ---------- 조작 설명 ----------
+
+func tutorial_seen(kind: String) -> bool:
+	return (data.get("tutorials", {}) as Dictionary).has(kind)
+
+
+func mark_tutorial(kind: String) -> void:
+	if not data.has("tutorials"):
+		data.tutorials = {}
+	data.tutorials[kind] = true
+	save_game()
+
+
+func reset_tutorials() -> void:
+	data.tutorials = {}
+	save_game()
 
 
 # ---------- 잠 ----------

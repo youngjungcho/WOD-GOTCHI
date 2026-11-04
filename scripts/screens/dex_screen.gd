@@ -18,6 +18,10 @@ func _ready() -> void:
 	_seen = Forms.load_dex().seen
 
 
+func button_labels() -> Dictionary:
+	return {"a": "다음", "b": "닫기", "menu": "뒤로"}
+
+
 func on_button(btn: String, down: bool) -> void:
 	if not down:
 		return

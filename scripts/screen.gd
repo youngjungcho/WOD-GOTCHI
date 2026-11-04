@@ -32,6 +32,16 @@ func on_tap(_pos: Vector2) -> void:
 	pass
 
 
+## 본체 버튼 아래에 보여줄 이름. 비어 있는 키는 기본 이름(A / B / 메뉴).
+func button_labels() -> Dictionary:
+	return {}
+
+
+## 지금 눌러야 할 버튼 힌트. {"a": 1(은은하게) 또는 2(지금!)}
+func button_hints() -> Dictionary:
+	return {}
+
+
 ## 다시 맨 위 화면이 되었을 때
 func on_resume() -> void:
 	pass

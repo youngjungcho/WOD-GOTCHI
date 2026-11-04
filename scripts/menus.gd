@@ -68,9 +68,12 @@ static func workout_menu(main: Node) -> ListScreen:
 		"cb": func(): main.push(free_cat_menu(main)),
 		"desc": "오늘의 추천 x%s: %s" % [Pal.num(GameState.PICK_BONUS), ", ".join(picks)],
 	}]
+	var today := WodGen.today()
+	items.append({"label": "오늘의 WOD", "cb": func(): main.push(wod_preview(main, today, false)), "desc": WodGen.summary(today)})
+	items.append({"label": "랜덤 WOD 뽑기", "cb": func(): main.push(wod_preview(main, WodGen.random(), true)), "desc": "방식·동작·횟수가 매번 새로!"})
 	var wods: Array = GameState.data.wods
 	for w in wods:
-		items.append({"label": "WOD: %s" % w.name, "cb": func(): main.pop_to_root(); main.push(WodPlay.new(w)), "desc": wod_summary(w)})
+		items.append({"label": "내 WOD: %s" % w.name, "cb": func(): main.pop_to_root(); main.push(WodPlay.new(w)), "desc": wod_summary(w)})
 	var left := GameState.attempts_left()
 	items.append({
 		"label": "1RM 챌린지 (%d/%d)" % [left, GameState.attempts_max()],
@@ -79,16 +82,54 @@ static func workout_menu(main: Node) -> ListScreen:
 		"hint": "오늘 시기를 다 썼어요. 내일 다시!",
 		"desc": "데드·스쿼트·클린·스내치 최대 무게 도전! 종목마다 하루 %d번." % GameState.ATTEMPTS_PER_DAY,
 	})
+	items.append({"label": "조작 설명 다시 보기", "cb": func():
+		GameState.reset_tutorials()
+		_done(main, "다음 운동부터 조작 설명을 다시 보여드릴게요."), "desc": "동작별 버튼 사용법을 다시 봐요."})
 	return ListScreen.new("운동 고르기", items)
 
 
 static func wod_summary(w: Dictionary) -> String:
-	var parts := []
-	for m in w.moves:
-		parts.append("%s %d" % [Moves.name_of(m.id), int(m.reps)])
 	var best := float(w.get("best", 0.0))
-	var rec := "  내 기록 %s" % WodPlay._fmt(best) if best > 0.0 else ""
-	return "%d라운드: %s%s" % [int(w.rounds), ", ".join(parts), rec]
+	var rec := ""
+	if best > 0.0:
+		match w.get("type", "fortime"):
+			"amrap":
+				rec = "  내 기록 %d회" % int(best)
+			"emom":
+				rec = "  내 기록 %d분" % int(best)
+			_:
+				rec = "  내 기록 %s" % WodPlay._fmt(best)
+	return WodGen.summary(w) + rec
+
+
+## WOD 미리보기: 시작 / (랜덤이면) 다시 뽑기 / 내 WOD에 저장
+static func wod_preview(main: Node, w: Dictionary, reroll: bool) -> ListScreen:
+	var items := [{"label": "시작!", "cb": func(): main.pop_to_root(); main.push(WodPlay.new(w)), "desc": WodGen.summary(w)}]
+	if reroll:
+		items.append({"label": "다시 뽑기", "cb": func(): main.pop(); main.push(wod_preview(main, WodGen.random(), true)), "desc": "다른 WOD로 바꿔요."})
+	items.append({"label": "내 WOD에 저장", "cb": func(): _save_wod(main, w), "desc": "저장하면 언제든 다시 하고 기록을 비교할 수 있어요."})
+	return ListScreen.new(w.name, items)
+
+
+static func save_wod_menu(main: Node, w: Dictionary) -> ListScreen:
+	return ListScreen.new("이 WOD를 저장할까요?", [
+		{"label": "저장하기 (%d/5)" % GameState.data.wods.size(), "cb": func(): _save_wod(main, w), "desc": WodGen.summary(w)},
+		{"label": "괜찮아요", "cb": func(): main.pop_to_root()},
+	])
+
+
+static func _save_wod(main: Node, w: Dictionary) -> void:
+	var wods: Array = GameState.data.wods
+	if wods.size() >= 5:
+		main.show_toast("내 WOD가 가득 찼어요 (5개). 하나 지워 주세요.")
+		return
+	var copy := w.duplicate(true)
+	copy.erase("temp")
+	copy.name = String(copy.name).replace("오늘의 WOD: ", "")
+	wods.append(copy)
+	GameState.save_game()
+	main.pop_to_root()
+	main.say("'%s' 저장 완료! 운동하기 메뉴에서 다시 할 수 있어요." % copy.name)
 
 
 static func free_cat_menu(main: Node) -> ListScreen:

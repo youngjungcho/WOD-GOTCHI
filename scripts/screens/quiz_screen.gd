@@ -19,6 +19,12 @@ func _init() -> void:
 	_dream = GameState.data.sleeping
 
 
+func button_labels() -> Dictionary:
+	if _answered >= 0:
+		return {"a": "다음", "b": "다음", "menu": "그만"}
+	return {"a": "다음보기", "b": "고르기", "menu": "그만"}
+
+
 func _opt_rect(k: int) -> Rect2:
 	return Rect2(8, 118 + k * 30, size.x - 16, 26)
 

@@ -28,6 +28,10 @@ func _process(delta: float) -> void:
 		Sfx.play("levelup")
 
 
+func button_labels() -> Dictionary:
+	return {"a": "계속", "b": "계속", "menu": "계속"}
+
+
 func on_button(_btn: String, down: bool) -> void:
 	if down:
 		_skip_or_close()

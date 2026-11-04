@@ -19,6 +19,10 @@ func _process(delta: float) -> void:
 	_shown += delta * 40.0
 
 
+func button_labels() -> Dictionary:
+	return {"a": "계속", "b": "계속", "menu": "계속"}
+
+
 func _done() -> bool:
 	return _shown >= _text.length()
 

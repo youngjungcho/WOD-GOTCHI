@@ -239,6 +239,10 @@ func _press(btn: String) -> void:
 					_finish(false, "중심을 잃었어요!")
 
 
+func button_labels() -> Dictionary:
+	return {"menu": "-"}
+
+
 func on_button(btn: String, down: bool) -> void:
 	if down and (btn == "a" or btn == "b"):
 		_press(btn)

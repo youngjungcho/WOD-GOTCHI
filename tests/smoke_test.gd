@@ -86,8 +86,8 @@ func _run() -> void:
 	await press("menu"); await press("a"); await press("b")
 	await wait(0.2)
 	await shot("workout_menu")
-	# 1RM: 메뉴 세번째 항목 (자유 운동, 첫 WOD, 1RM)
-	await press("a"); await press("a"); await press("b")
+	# 1RM: 네번째 항목 (자유 운동, 오늘의 WOD, 랜덤 WOD, 1RM)
+	await press("a"); await press("a"); await press("a"); await press("b")
 	await wait(0.2)
 	await shot("lift_setup")
 	await press("a"); await press("a"); await press("b")  # 도전!
@@ -144,11 +144,30 @@ func _run() -> void:
 	await wait(0.2)
 	await shot("lift_setup_clean")
 	main.pop_to_root()
+	# ---- 조작 설명(튜토리얼) + 버튼 힌트 ----
+	var tw = WodPlay.new({"name": "설명", "rounds": 1, "moves": [{"id": "burpee", "reps": 2}]})
+	main.push(tw)
+	await wait(2.7)
+	await shot("tutorial")
+	print("tutorial state=", tw._state, " hints=", tw.button_hints())
+	await press("a")
+	await wait(0.3)
+	print("after tutorial state=", tw._state, " hints=", tw.button_hints())
+	await shot("hint_combo")
+	await press("menu")
+	await wait(2.0)
+	await press("a"); await wait(0.1); await press("a")
+	main.pop_to_root()
+	for k in ["power", "rope", "cadence", "combo", "beat"]:
+		GameState.mark_tutorial(k)
 	# ---- WOD 자동 플레이: 동작별 조작을 봇이 정확한 타이밍에 입력 ----
 	GameState.data.gauges.energy = 100.0
 	var wod := {"name": "테스트", "rounds": 2, "moves": [{"id": "thruster", "reps": 3}, {"id": "du", "reps": 3}, {"id": "row", "reps": 2}, {"id": "burpee", "reps": 2}, {"id": "t2b", "reps": 2}]}
-	for attempt in 2:
-		var wp = WodPlay.new(wod)
+	var amrap_w := {"name": "암랩", "type": "amrap", "minutes": 3, "rounds": 1, "moves": [{"id": "kbswing", "reps": 3}, {"id": "burpee", "reps": 2}]}
+	var emom_w := {"name": "이몸", "type": "emom", "minutes": 3, "rounds": 1, "moves": [{"id": "deadlift", "reps": 2}, {"id": "row", "reps": 2}]}
+	var plays := [wod, wod, amrap_w, emom_w]
+	for attempt in plays.size():
+		var wp = WodPlay.new(plays[attempt])
 		main.push(wp)
 		var seen := {}
 		var guard := 0
@@ -162,6 +181,9 @@ func _run() -> void:
 			if attempt == 0 and not seen.has(typ):
 				seen[typ] = true
 				await shot("wod_" + typ)
+			if attempt >= 2 and not seen.has("fmt"):
+				seen["fmt"] = true
+				await shot("wod_" + wp._type)
 			# 심박 관리: 80을 넘으면 손을 떼고 50까지 쉰다
 			if wp._hr > 80.0:
 				pacing = true
@@ -187,13 +209,22 @@ func _run() -> void:
 					var want: String = wp._pat[wp._beat_n % wp._pat.size()]
 					if want != "" and absf(wp._clock - nt) < 0.03:
 						await press(want, 0.01)
-		print("wod attempt ", attempt, " time=", snappedf(wp._clock, 0.1), " rival=", snappedf(wp._rival_time, 0.1), " best=", wod.get("best"), " done=", wp._done)
+		print("wod attempt ", attempt, " type=", wp._type, " game=", snappedf(wp._g(), 1), " limit=", wp._limit, " total=", wp._total_done(), " best=", plays[attempt].get("best"), " emom ok/fail=", wp._emom_ok, "/", wp._emom_fail)
 		await wait(2.0)
-		if attempt == 0:
-			await shot("wod_result")
+		if attempt == 0 or attempt >= 2:
+			await shot("wod_result_" + wp._type)
 		await press("a"); await wait(0.1); await press("a"); await wait(0.1); await press("a")
 		await wait(0.3)
 		main.pop_to_root()
+	# 랜덤 WOD 생성 확인
+	for i in 6:
+		var rw := WodGen.random()
+		print("random: ", rw.name, " | ", WodGen.summary(rw))
+	print("today: ", WodGen.summary(WodGen.today()), " / same=", WodGen.summary(WodGen.today()) == WodGen.summary(WodGen.today()))
+	main.push(Menus.wod_preview(main, WodGen.random(), true))
+	await wait(0.3)
+	await shot("wod_preview")
+	main.pop_to_root()
 	# 심박 100 → 강제 휴식 확인
 	var wp2 = WodPlay.new({"name": "연타", "rounds": 1, "moves": [{"id": "burpee", "reps": 30}]})
 	main.push(wp2)
@@ -227,12 +258,12 @@ func _run() -> void:
 	var ed = WodEditor.new(-1)
 	main.push(ed)
 	await wait(0.2)
-	ed.rows[2].value = "thruster"
-	ed.rows[4].value = "muscleup"
-	ed.rows[6].value = "row"
+	ed.rows[WodEditor.FIRST_MOVE_ROW].value = "thruster"
+	ed.rows[WodEditor.FIRST_MOVE_ROW + 2].value = "muscleup"
+	ed.rows[WodEditor.FIRST_MOVE_ROW + 4].value = "row"
 	await wait(0.2)
 	await shot("wod_editor")
-	ed._change(2, 1)  # 동작 칸 누르기 -> 피커
+	ed._change(WodEditor.FIRST_MOVE_ROW, 1)  # 동작 칸 누르기 -> 피커
 	await wait(0.2)
 	await shot("move_picker")
 	main.pop_to_root()
@@ -343,8 +374,8 @@ func _run() -> void:
 	main.push(sg)
 	while not sg._ended:
 		await get_tree().process_frame
-		var want_a: bool = sg._m > 0.05 or sg._v > 0.3
-		var want_b: bool = sg._m < -0.05 or sg._v < -0.3
+		var want_b: bool = sg._m > 0.05 or sg._v > 0.3
+		var want_a: bool = sg._m < -0.05 or sg._v < -0.3
 		if want_a != sg._hold_a:
 			main._press("a", want_a, -1)
 		if want_b != sg._hold_b:
