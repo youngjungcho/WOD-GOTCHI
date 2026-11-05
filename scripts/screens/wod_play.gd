@@ -116,6 +116,7 @@ func _g() -> float:
 
 
 func _ready() -> void:
+	Sfx.bgm("wod")
 	if _scaled.size() > 0:
 		var lines := []
 		for s in _scaled:
@@ -689,16 +690,20 @@ func _pop_word(s: String) -> void:
 
 # ---------- 그리기 ----------
 
+const S := 2  # 캐릭터 크기 (칸 하나 = 2px, 홈과 같은 크기)
+const FLOOR_RATIO := 0.9
+
+
 func _draw() -> void:
 	var scene := Rect2(0, 44, size.x, 128)
-	Pal.box_scene(self, scene, t)
+	Pal.box_scene(self, scene, t, FLOOR_RATIO)
 	_draw_top()
-	var floor_y := scene.position.y + scene.size.y * 0.68
+	var floor_y := scene.position.y + scene.size.y * FLOOR_RATIO
 	_draw_character(floor_y)
 	if _state == "play":
 		_draw_input(floor_y)
 	if t - _pop_t < 0.6 and _pop != "":
-		var y := floor_y - 70 - (t - _pop_t) * 20.0
+		var y := floor_y - 100 - (t - _pop_t) * 20.0
 		var col := Pal.RED if _pop in ["No Rep!", "MISS", "줄 걸림!", "삐끗!", "너무 빨라!", "박자!"] else Pal.BLUE
 		Pal.text_center(self, Rect2(0, y, size.x, 12), _pop, col)
 	_draw_info()
@@ -780,16 +785,17 @@ func _draw_top() -> void:
 func _draw_character(floor_y: float) -> void:
 	var look: Dictionary = GameState.data.look
 	var st := GameState.style()
-	var o := Vector2(74, floor_y - 44)
+	var o := Vector2(58, floor_y - 92)  # 64x96 캐릭터의 왼쪽 위
+	var cx := o.x + 32.0
 	if _state == "done":
-		Pal.athlete(self, Vector2(74, floor_y - 44), look, "sleep", 1, t, 0.0, st)
+		Pal.athlete(self, o, look, "sleep", S, t, 0.0, st)
 		return
 	if _locked:
-		Pal.athlete(self, o, look, "tired", 1, t, 0.0, st)
-		Pal.bubble(self, o + Vector2(28, -10), "sweat")
+		Pal.athlete(self, o, look, "tired", S, t, 0.0, st)
+		Pal.bubble(self, o + Vector2(54, -2), "sweat")
 		return
 	if _state != "play":
-		Pal.athlete(self, o, look, "idle", 1, t, 0.0, st)
+		Pal.athlete(self, o, look, "idle", S, t, 0.0, st)
 		return
 	var id: String = _q().id
 	var cat: String = Moves.LIST[id].cat
@@ -797,66 +803,70 @@ func _draw_character(floor_y: float) -> void:
 		"power":
 			var p := 1.0 - _anim if _anim > 0.0 else 0.15
 			if cat == "barbell" and id in ["backsquat", "frontsquat", "thruster", "lunge"]:
-				Pal.athlete(self, o, look, "squat", 1, t, p, st)
-				Pal.barbell(self, Vector2(90, o.y + Chibi.shoulder_y(p)), 28, 2)
+				Pal.athlete(self, o, look, "squat", S, t, p, st)
+				Pal.barbell(self, Vector2(cx, o.y + Chibi.shoulder_y(p) * S), 42, 3)
 			elif id in ["ohs", "squatsnatch", "powersnatch", "press", "pushpress", "pushjerk", "splitjerk", "cleanjerk"] and _anim > 0.0:
-				Pal.athlete(self, o, look, "ohs", 1, t, 1.0, st)
-				Pal.barbell(self, Vector2(90, o.y + Chibi.overhead_y(1.0)), 28, 2)
+				Pal.athlete(self, o, look, "ohs", S, t, 1.0, st)
+				Pal.barbell(self, Vector2(cx, o.y + Chibi.overhead_y(1.0) * S), 42, 3)
 			else:
-				Pal.athlete(self, o, look, "lift", 1, t, p, st)
-				var hand := Vector2(90, o.y + Chibi.lift_hand_y(p))
+				Pal.athlete(self, o, look, "lift", S, t, p, st)
+				var hand := Vector2(cx, o.y + Chibi.lift_hand_y(p) * S)
 				if cat == "barbell":
-					Pal.barbell(self, hand, 28, 2)
+					Pal.barbell(self, hand, 42, 3)
 				else:
-					draw_rect(Rect2(hand - Vector2(5, 0), Vector2(10, 9)), Pal.INK)
-					draw_rect(Rect2(hand - Vector2(4, -1), Vector2(8, 7)), Pal.PINK)
+					draw_rect(Rect2(hand - Vector2(9, 0), Vector2(18, 15)), Pal.INK)
+					draw_rect(Rect2(hand - Vector2(8, -1), Vector2(16, 13)), Pal.PINK)
+					draw_rect(Rect2(hand - Vector2(6, -3), Vector2(4, 2)), Pal.WHITE)
 		"rope":
 			var ph := fmod(_rope, 1.0)
-			var jump := 6.0 if absf(ph - 0.5) < 0.18 and _rope_hit else 0.0
+			var jump := 10.0 if absf(ph - 0.5) < 0.18 and _rope_hit else 0.0
 			# 줄: 몸 뒤(위쪽 반)와 앞(아래쪽 반)
-			var c := Vector2(90, o.y + 26)
+			var c := Vector2(cx, o.y + 50)
 			var ang := ph * TAU
 			_draw_rope(c, ang, ph > 0.25 and ph < 0.75)
-			Pal.athlete(self, o - Vector2(0, jump), look, "idle" if jump == 0.0 else "happy", 1, t, 0.0, st)
+			Pal.athlete(self, o - Vector2(0, jump), look, "idle" if jump == 0.0 else "happy", S, t, 0.0, st)
 			_draw_rope(c, ang, not (ph > 0.25 and ph < 0.75))
 		"cadence":
-			var bob := 3.0 * sin(_clock * PI / float(_inp.interval))
-			Pal.athlete(self, o + Vector2(0, bob if _clock - _last_input < 0.6 else 0.0), look, "lift" if id in ["row", "ski", "sled", "farmer"] else "idle", 1, t, 0.6 + bob * 0.1, st)
+			var bob := 5.0 * sin(_clock * PI / float(_inp.interval))
+			Pal.athlete(self, o + Vector2(0, bob if _clock - _last_input < 0.6 else 0.0), look, "lift" if id in ["row", "ski", "sled", "farmer"] else "idle", S, t, 0.6 + bob * 0.06, st)
 		"combo":
 			var seq_len: int = _inp.seq.size()
 			var pose := "idle"
 			var dy := 0.0
 			if _step > 0:
 				pose = "squat" if _step % 2 == 1 else "happy"
-				dy = -6.0 if pose == "happy" else 0.0
+				dy = -10.0 if pose == "happy" else 0.0
 			if _anim > 0.6 and _step == 0 and seq_len > 0:
 				pose = "happy"
-				dy = -8.0 * _anim
-			Pal.athlete(self, o + Vector2(0, dy), look, pose, 1, t, 0.0, st)
+				dy = -14.0 * _anim
+			Pal.athlete(self, o + Vector2(0, dy), look, pose, S, t, 0.0, st)
 		"beat":
 			if Moves.LIST[id].get("anim", "bar") == "bar":
-				var bar_y := floor_y - 72
-				draw_rect(Rect2(40, bar_y, 100, 2), Pal.INK)
-				Pal.athlete(self, Vector2(74, bar_y - Chibi.HANG_HAND_Y + 1), look, "hang", 1, t, _anim, st)
-				draw_rect(Rect2(40, bar_y, 100, 2), Pal.INK)
+				var bar_y := floor_y - 93
+				draw_rect(Rect2(30, bar_y, 120, 3), Pal.INK)
+				Pal.athlete(self, Vector2(o.x, bar_y - Chibi.HANG_HAND_Y * S + 1), look, "hang", S, t, _anim, st)
+				draw_rect(Rect2(30, bar_y, 120, 3), Pal.INK)
 			else:
-				Pal.athlete(self, o - Vector2(0, _anim * 6.0), look, "happy" if _anim > 0.5 else "idle", 1, t, 0.0, st)
+				Pal.athlete(self, o - Vector2(0, _anim * 10.0), look, "happy" if _anim > 0.5 else "idle", S, t, 0.0, st)
 
 
 func _draw_rope(c: Vector2, ang: float, front: bool) -> void:
 	# 줄을 몸 둘레의 타원으로 그리고, 앞쪽 절반/뒤쪽 절반을 나눠 그린다
 	var col := Pal.RED if front else Color(Pal.RED, 0.45)
-	var y := c.y - cos(ang) * 30.0
-	draw_rect(Rect2(c.x - 22, y, 44, 2), col)
-	draw_rect(Rect2(c.x - 24, min(y, c.y), 2, absf(y - c.y)), col)
-	draw_rect(Rect2(c.x + 22, min(y, c.y), 2, absf(y - c.y)), col)
+	var y := c.y - cos(ang) * 52.0
+	draw_rect(Rect2(c.x - 38, y, 76, 2), col)
+	draw_rect(Rect2(c.x - 40, min(y, c.y), 2, absf(y - c.y)), col)
+	draw_rect(Rect2(c.x + 38, min(y, c.y), 2, absf(y - c.y)), col)
 
 
 func _draw_input(floor_y: float) -> void:
-	var r := Rect2(8, floor_y + 12, size.x - 16, 16)
+	# 캐릭터가 커져서 조작 막대는 장면 위쪽(경주 막대 아래)에 둔다. 배경과 구분되게 어두운 띠를 깐다
+	var r := Rect2(8, 47, size.x - 16, 15)
+	if _inp.type != "combo":
+		draw_rect(Rect2(0, 44, size.x, 22), Color(Pal.INK, 0.35))
 	if _inp.type in ["cadence", "combo", "beat"]:
-		Pal.text(self, Vector2(4, floor_y - 2), "◀B", Color(Pal.BLUE, 0.7))
-		Pal.text(self, Vector2(size.x - 20, floor_y - 2), "A▶", Color(Pal.RED, 0.7))
+		Pal.text(self, Vector2(4, floor_y - 10), "◀B", Color(Pal.BLUE, 0.7))
+		Pal.text(self, Vector2(size.x - 20, floor_y - 10), "A▶", Color(Pal.RED, 0.7))
 	var tight := _tight()
 	match _inp.type:
 		"power":
@@ -884,14 +894,14 @@ func _draw_input(floor_y: float) -> void:
 			draw_rect(Rect2(zx.call(0.65), r.position.y + 1, zx.call(1.4) - zx.call(0.65), r.size.y - 2), Color(Pal.GREEN, 0.55))
 			draw_rect(Rect2(zx.call(1.0) - 1, r.position.y + 1, 2, r.size.y - 2), Pal.YELLOW)
 			draw_rect(Rect2(zx.call(_cad_mark) - 1, r.position.y - 3, 3, r.size.y + 6), Pal.RED)
-			_btn_icon(Vector2(r.end.x - 14, r.position.y - 20), _next_btn, true)
+			_btn_icon(Vector2(r.end.x - 14, r.end.y + 3), _next_btn, true)
 		"combo":
 			var seq: Array = _inp.seq
 			var x0 := size.x * 0.5 - seq.size() * 9.0
 			for i in seq.size():
 				_btn_icon(Vector2(x0 + i * 18, r.position.y), seq[i], i == _step)
 				if i < _step:
-					Pal.icon(self, Vector2(x0 + i * 18 + 3, r.position.y - 9), "cond")
+					Pal.icon(self, Vector2(x0 + i * 18 + 4, r.position.y + 17), "cond")
 		"beat":
 			# 작은 리듬 레인: 노트가 오른쪽에서 판정선으로
 			Pal.round_rect(self, r, Pal.INK)

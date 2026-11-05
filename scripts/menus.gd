@@ -5,7 +5,10 @@ extends RefCounted
 
 static func main_menu(main: Node) -> ListScreen:
 	var sleeping: bool = GameState.data.sleeping
-	return ListScreen.new("무엇을 할까?", [
+	var items := [
+		{"label": "★ 은퇴식 열기", "cb": func(): main.pop(); main.push(RetireScreen.new()), "desc": "게임즈 선수 달성! 명예의 전당에 오르고 코치가 돼요."},
+	] if GameState.can_retire() else []
+	return ListScreen.new("무엇을 할까?", items + [
 		{"label": "밥 주기", "cb": func(): main.push(food_menu(main))},
 		{"label": "운동하기", "cb": func(): _try_workout(main, func(): main.push(workout_menu(main)))},
 		{"label": "깨우기" if sleeping else "재우기", "cb": func(): _done(main, GameState.toggle_sleep())},
@@ -16,6 +19,8 @@ static func main_menu(main: Node) -> ListScreen:
 		{"label": "화이트보드", "cb": func(): main.pop(); main.push(StatsScreen.new())},
 		{"label": "도감", "cb": func(): main.pop(); main.push(DexScreen.new())},
 		{"label": "운동 달력", "cb": func(): main.pop(); main.push(CalendarScreen.new())},
+		{"label": "꾸미기 상점", "cb": func(): main.pop(); main.push(ShopScreen.new())},
+		{"label": "명예의 전당", "cb": func(): main.pop(); main.push(HallScreen.new())},
 		{"label": "설정", "cb": func(): main.push(settings_menu(main))},
 	])
 
@@ -222,7 +227,16 @@ static func real_menu(main: Node) -> ListScreen:
 static func settings_menu(main: Node) -> ListScreen:
 	Settings.ensure()
 	return ListScreen.new("설정", [
-		{"label": "소리: %s" % ("켜짐" if Settings.sound else "꺼짐"), "cb": func():
+		{"label": "음악: %s" % ("켜짐" if Settings.music else "꺼짐"), "cb": func():
+			Settings.music = not Settings.music
+			Settings.save()
+			if Settings.music:
+				Sfx.bgm("home")
+			else:
+				Sfx.stop_bgm()
+			main.pop()
+			main.push(settings_menu(main)), "desc": "배경음악을 켜고 꺼요."},
+		{"label": "효과음: %s" % ("켜짐" if Settings.sound else "꺼짐"), "cb": func():
 			Settings.sound = not Settings.sound
 			Settings.save()
 			main.pop()

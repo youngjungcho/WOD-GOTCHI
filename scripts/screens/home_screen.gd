@@ -16,8 +16,13 @@ var _wander := 0.0
 var _happy_until := 0.0
 
 
+var _coach := {}  # 은퇴한 선배 (박스 코치)
+
+
 func _ready() -> void:
 	GameState.changed.connect(queue_redraw)
+	_coach = Hall.coach()
+	Sfx.bgm("home")
 
 
 func _process(delta: float) -> void:
@@ -96,9 +101,9 @@ func _mood_line() -> String:
 	if GameState.call_active():
 		return "! " + GameState.call_text()
 	if d.sleeping:
-		var eta := GameState.sleep_eta_minutes()
-		var night := " 밤잠x1.5" if GameState.is_night() else ""
-		return "쿨쿨... 완충까지 %d분%s\n(메뉴: 꿈속 퀴즈)" % [eta, night]
+		if d.get("night_sleep", false):
+			return "쿨쿨... 아침 7시에 일어나요\n(메뉴: 꿈속 퀴즈)"
+		return "쿨쿨... 낮잠, 완충까지 %d분\n(메뉴: 꿈속 퀴즈)" % GameState.sleep_eta_minutes()
 	if GameState.is_injured():
 		return "아야... 부상 회복 중이에요."
 	if GameState.gauge("food") < 25.0:
@@ -150,6 +155,7 @@ func _quick(i: int) -> void:
 
 func on_resume() -> void:
 	queue_redraw()
+	Sfx.bgm("home")
 
 
 func on_button(btn: String, down: bool) -> void:
@@ -223,6 +229,13 @@ func _draw() -> void:
 		var mx := 20.0 + i * 52.0
 		draw_rect(Rect2(mx, floor_y + 18 + (i % 2) * 8, 8, 3), Pal.WHITE)
 		draw_rect(Rect2(mx + 2, floor_y + 16 + (i % 2) * 8, 4, 2), Pal.WHITE)
+	# 은퇴한 선배 코치 (왼쪽 구석)
+	if not _coach.is_empty():
+		var co := Vector2(2, floor_y - 46)
+		Pal.athlete(self, co, _coach.look, "idle", 1, t + 1.3, 0.0, Forms.style_of(_coach.form))
+		if int(t / 4.0) % 3 == 0:
+			Pal.round_rect(self, Rect2(co.x + 2, co.y - 12, 28, 11), Pal.WHITE)
+			Pal.text_center(self, Rect2(co.x + 2, co.y - 12, 28, 11), "코치", Pal.BLUE)
 	# 캐릭터
 	var pose := _pose()
 	var cx := 90.0 if pose == "sleep" else _x

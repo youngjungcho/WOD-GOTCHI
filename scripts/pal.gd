@@ -109,14 +109,18 @@ static func cursor(ci: CanvasItem, pos: Vector2, col: Color = INK) -> void:
 # ---------- 배경 ----------
 
 ## 아늑한 크로스핏 박스 실내 배경.
-static func box_scene(ci: CanvasItem, r: Rect2, t: float, floor_ratio: float = 0.68) -> void:
+## room_override: 상점 미리보기용 (null이면 지금 꾸민 대로)
+static func box_scene(ci: CanvasItem, r: Rect2, t: float, floor_ratio: float = 0.68, room_override = null) -> void:
 	var floor_y := r.position.y + r.size.y * floor_ratio
+	var room: Dictionary = GameState.room() if room_override == null else room_override
 	var wall := Rect2(r.position, Vector2(r.size.x, floor_y - r.position.y))
-	ci.draw_rect(wall, LIGHT)
+	var wall_col := Color(room.get("wall", "fff6e8"))
+	ci.draw_rect(wall, wall_col)
 	# 벽지 줄무늬
+	var stripe := Color("fdeedd") if not room.has("wall") else wall_col.darkened(0.04)
 	var x := r.position.x + 4
 	while x < r.end.x:
-		ci.draw_rect(Rect2(x, wall.position.y, 6, wall.size.y), Color("fdeedd"))
+		ci.draw_rect(Rect2(x, wall.position.y, 6, wall.size.y), stripe)
 		x += 16
 	# 걸레받이
 	ci.draw_rect(Rect2(r.position.x, floor_y - 5, r.size.x, 5), Color("f6d6c8"))
@@ -161,8 +165,10 @@ static func box_scene(ci: CanvasItem, r: Rect2, t: float, floor_ratio: float = 0
 		mx += 28
 	var mat := Rect2(r.position.x + 30, floor_y + 6, r.size.x - 60, r.end.y - floor_y - 12)
 	if mat.size.y > 4:
-		round_rect(ci, mat, Color("7cc9b4"))
-		round_rect(ci, mat.grow(-1), MINT)
+		var mat_col := Color(room.get("mat", "9fe3d0"))
+		round_rect(ci, mat, mat_col.darkened(0.2))
+		round_rect(ci, mat.grow(-1), mat_col)
+	_room_extras(ci, r, floor_y, room)
 	# 케틀벨
 	var kb := Vector2(r.end.x - 24, floor_y - 9)
 	ci.draw_rect(Rect2(kb + Vector2(1, 3), Vector2(9, 7)), INK)
@@ -171,6 +177,60 @@ static func box_scene(ci: CanvasItem, r: Rect2, t: float, floor_ratio: float = 0
 	ci.draw_rect(Rect2(kb + Vector2(2, 0), Vector2(7, 1)), INK)
 	ci.draw_rect(Rect2(kb + Vector2(2, 0), Vector2(1, 4)), INK)
 	ci.draw_rect(Rect2(kb + Vector2(8, 0), Vector2(1, 4)), INK)
+
+
+## 상점에서 산 포스터·소품.
+static func _room_extras(ci: CanvasItem, r: Rect2, floor_y: float, room: Dictionary) -> void:
+	match room.get("poster", ""):
+		"cf":
+			var p := Rect2(r.position.x + 110, r.position.y + 10, 20, 26)
+			round_rect(ci, p, INK)
+			ci.draw_rect(p.grow(-1), RED)
+			ci.draw_rect(p.grow(-3), WHITE)
+			icon(ci, p.position + Vector2(7, 5), "dumbbell")
+			ci.draw_rect(Rect2(p.position.x + 5, p.position.y + 15, 10, 1), INK)
+			ci.draw_rect(Rect2(p.position.x + 6, p.position.y + 18, 8, 1), INK)
+		"cat":
+			var p := Rect2(r.position.x + 110, r.position.y + 10, 20, 24)
+			round_rect(ci, p, INK)
+			ci.draw_rect(p.grow(-1), Color("fff1c9"))
+			var c := p.position + Vector2(10, 14)
+			ci.draw_rect(Rect2(c + Vector2(-6, -6), Vector2(3, 3)), Color("f2a65a"))
+			ci.draw_rect(Rect2(c + Vector2(3, -6), Vector2(3, 3)), Color("f2a65a"))
+			ci.draw_rect(Rect2(c + Vector2(-6, -4), Vector2(12, 9)), Color("f2a65a"))
+			ci.draw_rect(Rect2(c + Vector2(-3, -1), Vector2(1, 2)), INK)
+			ci.draw_rect(Rect2(c + Vector2(2, -1), Vector2(1, 2)), INK)
+			ci.draw_rect(Rect2(c + Vector2(-1, 2), Vector2(2, 1)), PINK)
+	var dx := r.end.x - 56  # 왼쪽은 은퇴한 코치 자리
+	match room.get("deco", ""):
+		"trophy":
+			var b := Vector2(dx, floor_y - 16)
+			ci.draw_rect(Rect2(b + Vector2(1, 0), Vector2(12, 8)), INK)
+			ci.draw_rect(Rect2(b + Vector2(2, 1), Vector2(10, 6)), YELLOW)
+			ci.draw_rect(Rect2(b + Vector2(3, 2), Vector2(2, 3)), WHITE)
+			ci.draw_rect(Rect2(b + Vector2(5, 8), Vector2(4, 4)), INK)
+			ci.draw_rect(Rect2(b + Vector2(6, 8), Vector2(2, 4)), YELLOW)
+			ci.draw_rect(Rect2(b + Vector2(2, 12), Vector2(10, 4)), INK)
+			ci.draw_rect(Rect2(b + Vector2(3, 13), Vector2(8, 2)), Color("c8875a"))
+		"bear":
+			var b := Vector2(dx + 7, floor_y - 9)
+			ci.draw_circle(b + Vector2(-5, -6), 3, INK)
+			ci.draw_circle(b + Vector2(5, -6), 3, INK)
+			ci.draw_circle(b, 8, INK)
+			ci.draw_circle(b, 7, Color("c8875a"))
+			ci.draw_circle(b + Vector2(-5, -6), 2, Color("c8875a"))
+			ci.draw_circle(b + Vector2(5, -6), 2, Color("c8875a"))
+			ci.draw_rect(Rect2(b + Vector2(-3, -2), Vector2(1, 2)), INK)
+			ci.draw_rect(Rect2(b + Vector2(2, -2), Vector2(1, 2)), INK)
+			ci.draw_rect(Rect2(b + Vector2(-2, 2), Vector2(4, 2)), Color("f0d0b0"))
+			ci.draw_rect(Rect2(b + Vector2(-1, 2), Vector2(2, 1)), INK)
+		"plant":
+			var b := Vector2(dx, floor_y - 26)
+			ci.draw_rect(Rect2(b + Vector2(2, 16), Vector2(12, 10)), INK)
+			ci.draw_rect(Rect2(b + Vector2(3, 17), Vector2(10, 8)), Color("ffffff"))
+			for lf in [Vector2(0, 6), Vector2(8, 4), Vector2(4, 0), Vector2(10, 10), Vector2(-2, 11)]:
+				ci.draw_rect(Rect2(b + lf, Vector2(7, 6)), Color("3f8f62"))
+				ci.draw_rect(Rect2(b + lf + Vector2(1, 1), Vector2(5, 4)), GREEN)
 
 
 # ---------- 아이콘 ----------

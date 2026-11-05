@@ -73,6 +73,10 @@ func _init(p_lift: String, p_weight: float) -> void:
 	_phases = LIFTS[lift].phases
 
 
+func _ready() -> void:
+	Sfx.bgm("wod")
+
+
 func _phase() -> Dictionary:
 	return _phases[_pi] if _pi >= 0 and _pi < _phases.size() else {}
 
@@ -294,26 +298,26 @@ func _pose_info() -> Dictionary:
 
 func _draw() -> void:
 	var scene := Rect2(0, 0, size.x, 170)
-	Pal.box_scene(self, scene, t)
-	var floor_y := scene.size.y * 0.68
-	var cx := 76.0
-	var o := Vector2(cx - 16, floor_y - 44)
+	Pal.box_scene(self, scene, t, 0.8)
+	var floor_y := scene.size.y * 0.8
+	var cx := 72.0
+	var o := Vector2(cx - 32, floor_y - 92)  # 캐릭터 2배 (64x96)
 	if _shake > 0.0:
 		o.x += (1 if int(t * 40) % 2 == 0 else -1)
 	if _phase().get("type", "") == "balance":
 		o.x += round(sin(t * 18.0) * _wobble * 3.0)
 	var info := _pose_info()
-	Pal.athlete(self, o, GameState.data.look, info.pose, 1, t, info.p, GameState.style())
+	Pal.athlete(self, o, GameState.data.look, info.pose, 2, t, info.p, GameState.style())
 	var plates := clampi(int(weight / 30.0), 1, 5)
 	var bar_y := floor_y - 6
 	match info.bar:
 		"hand":
-			bar_y = o.y + Chibi.lift_hand_y(info.p)
+			bar_y = o.y + Chibi.lift_hand_y(info.p) * 2
 		"shoulder":
-			bar_y = o.y + Chibi.shoulder_y(info.p)
+			bar_y = o.y + Chibi.shoulder_y(info.p) * 2
 		"over":
-			bar_y = o.y + Chibi.overhead_y(info.p)
-	Pal.barbell(self, Vector2(cx, bar_y), 34, plates)
+			bar_y = o.y + Chibi.overhead_y(info.p) * 2
+	Pal.barbell(self, Vector2(cx, bar_y), 46, plates)
 	_draw_meter()
 	if t - _note_t < 0.8:
 		Pal.text(self, Vector2(8, 8), _note, Pal.RED)
@@ -401,7 +405,7 @@ func _draw_meter() -> void:
 			Pal.text(self, Vector2(g.position.x - 3, g.end.y + 2), "깊이", Pal.WHITE)
 		"catch":
 			# 가로 받기 게이지
-			var cr := Rect2(10, 128, 160, 14)
+			var cr := Rect2(10, 150, 160, 14)
 			draw_rect(cr, Pal.INK)
 			draw_rect(cr.grow(-1), Pal.WHITE)
 			var w := cr.size.x - 2

@@ -11,7 +11,7 @@ const GX := 8  # 캐릭터 x=0이 그리드의 몇 번째 칸인지
 const GY := 44  # 캐릭터 y=0이 그리드의 몇 번째 칸인지
 
 # 칸 색 코드
-enum { NONE, K, SK, SKS, HR, HRH, OF, OFS, PT, SH, EY, WH, BL, BAND, BELT, GOLD, CAPE, SWEAT, MAT, JEWEL, SIL }
+enum { NONE, K, SK, SKS, HR, HRH, OF, OFS, PT, SH, EY, WH, BL, BAND, BELT, GOLD, CAPE, SWEAT, MAT, JEWEL, SIL, CAP, CAPS }
 
 const HANG_HAND_Y := -4  # 매달리기 자세에서 손(봉) 높이
 
@@ -20,6 +20,12 @@ const HAIRS := [["4a3530", "6e5048"], ["9a5e3a", "c07e52"], ["f2c75c", "ffe08a"]
 const OUTFITS := [["7ec4f8", "5aa3dc"], ["ff8a8a", "e06868"], ["8edb9a", "62b874"], ["b79cf0", "9478d4"]]
 
 static var _cache := {}
+
+const LOGOS := {
+	"heart": [Vector2i(14, 0), Vector2i(15, 0), Vector2i(17, 0), Vector2i(18, 0), Vector2i(14, 1), Vector2i(15, 1), Vector2i(16, 1), Vector2i(17, 1), Vector2i(18, 1), Vector2i(15, 2), Vector2i(16, 2), Vector2i(17, 2), Vector2i(16, 3)],
+	"star": [Vector2i(16, 0), Vector2i(14, 1), Vector2i(15, 1), Vector2i(16, 1), Vector2i(17, 1), Vector2i(18, 1), Vector2i(15, 2), Vector2i(16, 2), Vector2i(17, 2), Vector2i(15, 3), Vector2i(17, 3)],
+	"bolt": [Vector2i(17, 0), Vector2i(16, 1), Vector2i(15, 2), Vector2i(16, 2), Vector2i(17, 2), Vector2i(16, 3), Vector2i(15, 4)],
+}
 
 
 ## 칸 그리드. 좌표는 캐릭터 기준(0,0 = 32x48 상자의 왼쪽 위).
@@ -134,10 +140,11 @@ static func _texture(g: Grid, look: Dictionary, style: Dictionary) -> Texture2D:
 	var fit: Array = OUTFITS[int(look.get("outfit", 0)) % OUTFITS.size()]
 	var cols := {
 		K: Color("4a3b4a"), SK: Color(skin[0]), SKS: Color(skin[1]), HR: Color(hair[0]), HRH: Color(hair[1]),
-		OF: Color(fit[0]), OFS: Color(fit[1]), PT: Color("5a6480"), SH: Color("fffdf8"), EY: Color("2b2233"),
+		OF: Color(fit[0]), OFS: Color(fit[1]), PT: Color("5a6480"), SH: Color(style.get("shoe", "fffdf8")), EY: Color("2b2233"),
 		WH: Color("ffffff"), BL: Color("ff9db0"), BAND: Color(style.get("headband", "ff7b8a")), BELT: Color("8a5a3a"),
 		GOLD: Color("ffcf4a"), CAPE: Color(style.get("cape", "ff7b8a")), SWEAT: Color("8fd3ff"), MAT: Color("9fe3d0"),
 		JEWEL: Color("ff5a6e"), SIL: style.get("sil", Color.BLACK),
+		CAP: Color(style.get("cap", "3b4a7a")), CAPS: Color(style.get("cap", "3b4a7a")).darkened(0.25),
 	}
 	var img := Image.create(GW, GH, false, Image.FORMAT_RGBA8)
 	for i in g.px.size():
@@ -260,9 +267,10 @@ static func build(look: Dictionary, pose: String, p: float, style: Dictionary, b
 		g.ell(16, ty, tw, 6.2, OF)
 	g.swap_in(0, int(ty) + 3, 32, int(ty) + 9, [OF], OFS)
 	if not sil:
-		# 가슴의 하트 로고
+		# 가슴 로고 (기본 하트, 상점에서 별·번개)
 		var hy := int(ty) - 3
-		for q in [Vector2i(14, 0), Vector2i(15, 0), Vector2i(17, 0), Vector2i(18, 0), Vector2i(14, 1), Vector2i(15, 1), Vector2i(16, 1), Vector2i(17, 1), Vector2i(18, 1), Vector2i(15, 2), Vector2i(16, 2), Vector2i(17, 2), Vector2i(16, 3)]:
+		var logo: Array = LOGOS.get(style.get("logo", "heart"), LOGOS.heart)
+		for q in logo:
 			g.put(q.x, hy + q.y, WH)
 	if style.get("belt", false):
 		g.swap_in(0, int(ty) + 3, 32, int(ty) + 5, [OF, OFS, WH], BELT)
@@ -288,7 +296,18 @@ static func build(look: Dictionary, pose: String, p: float, style: Dictionary, b
 	var hcy := 14.0 + y0
 	g.ell(16, hcy, 13.0, 12.0, SK)
 	_hair(g, hair_style, y0)
-	if style.has("headband"):
+	if style.has("cap"):
+		# 머리 위쪽을 모자로 덮고 앞으로 챙
+		for y in range(-1 + y0, 9 + y0):
+			for x in range(2, 30):
+				var a := (x + 0.5 - 16.0) / 13.8
+				var b := (y + 0.5 - 13.6 - y0) / 12.8
+				if a * a + b * b <= 1.0:
+					g.put(x, y, CAP)
+		g.rect(3, 8 + y0, 26, 1, CAPS)
+		g.rect(17, 9 + y0, 14, 2, CAPS)
+		g.put(16, 0 + y0, CAPS)
+	elif style.has("headband"):
 		g.swap_in(0, 8 + y0, 32, 10 + y0, [HR, HRH, SK, SKS], BAND)
 		g.rect(28, 7 + y0, 3, 2, BAND)
 		g.put(30, 9 + y0, BAND)
@@ -322,6 +341,12 @@ static func build(look: Dictionary, pose: String, p: float, style: Dictionary, b
 				g.put(ex, 14 + y0 + j, EY)
 				g.put(ex + 4, 14 + y0 + j, EY)
 		g.rect(13, 16 + y0, 6, 1, EY)
+	if style.get("shades", false):
+		g.rect(8, 14 + y0, 5, 5, EY)
+		g.rect(19, 14 + y0, 5, 5, EY)
+		g.rect(13, 15 + y0, 6, 1, EY)
+		g.put(9, 15 + y0, WH)
+		g.put(20, 15 + y0, WH)
 	if style.get("bandage", false):
 		g.rect(21, 5 + y0, 4, 2, WH)
 		g.rect(22, 4 + y0, 2, 4, WH)

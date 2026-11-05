@@ -69,12 +69,12 @@ func on_tap(pos: Vector2) -> void:
 
 func _draw() -> void:
 	var scene := Rect2(0, 0, size.x, 170)
-	Pal.box_scene(self, scene, t)
-	var floor_y := scene.size.y * 0.68
+	Pal.box_scene(self, scene, t, 0.8)
+	var floor_y := scene.size.y * 0.8
 	var lean := _m * 10.0
-	Pal.athlete(self, Vector2(74 + lean, floor_y - 44), GameState.data.look, "ohs" if absf(_m) <= ZONE else "tired", 1, t, 0.7, GameState.style())
+	Pal.athlete(self, Vector2(58 + lean * 1.6, floor_y - 92), GameState.data.look, "ohs" if absf(_m) <= ZONE else "tired", 2, t, 0.7, GameState.style())
 	# 균형 게이지
-	var r := Rect2(14, 132, size.x - 28, 14)
+	var r := Rect2(14, 150, size.x - 28, 14)
 	Pal.round_rect(self, r, Pal.INK)
 	draw_rect(r.grow(-1), Pal.WHITE)
 	var iw := r.size.x - 2

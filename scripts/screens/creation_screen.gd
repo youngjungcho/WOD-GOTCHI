@@ -47,3 +47,9 @@ func _draw_header() -> void:
 	Pal.athlete(self, Vector2(size.x * 0.5 - 32, 6), _look(), "idle", 2, t)
 	Pal.window(self, Rect2(4, 4, 62, 18))
 	Pal.text(self, Vector2(10, 7), "NEW 회원!", Pal.RED)
+	var gen := Hall.members().size()
+	if gen > 0:
+		var txt := "%d대 회원 · 성장 +%d%%" % [gen + 1, int(Hall.xp_bonus() * 100)]
+		var w := Pal.text_width(txt) + 12
+		Pal.window(self, Rect2(size.x - w - 4, 4, w, 18))
+		Pal.text(self, Vector2(size.x - w + 2, 7), txt, Pal.BLUE)

@@ -6,6 +6,7 @@ const PATH := "user://settings.json"
 
 static var sound := true
 static var vibrate := true
+static var music := true
 static var _loaded := false
 
 
@@ -18,9 +19,10 @@ static func ensure() -> void:
 		if typeof(d) == TYPE_DICTIONARY:
 			sound = d.get("sound", true)
 			vibrate = d.get("vibrate", true)
+			music = d.get("music", true)
 
 
 static func save() -> void:
 	var f := FileAccess.open(PATH, FileAccess.WRITE)
 	if f:
-		f.store_string(JSON.stringify({"sound": sound, "vibrate": vibrate}))
+		f.store_string(JSON.stringify({"sound": sound, "vibrate": vibrate, "music": music}))

@@ -12,7 +12,7 @@ const STAGE_DECAY := [0.5, 0.7, 1.0, 1.2, 1.4]
 const STAGE_FLOOR := [35.0, 25.0, 10.0, 0.0, 0.0]
 const STAGE_DETRAIN := [0.0, 0.0, 0.0, 0.03, 0.05]
 # 다음 단계로 가기 위한 조건: [능력치 레벨 합계, 실제로 운동한 날 수]
-const STAGE_REQ := [[12, 2], [20, 5], [32, 12], [48, 25]]
+const STAGE_REQ := [[10, 2], [20, 5], [32, 12], [48, 25]]
 
 # 시간당 기본 변화량
 const DECAY_PER_HOUR := {"food": 6.0, "energy": 4.0, "mood": 3.0, "cond": 2.0}
@@ -59,12 +59,22 @@ func _notification(what: int) -> void:
 		catch_up()
 
 
+## 테스트·시뮬레이션에서 시계를 앞으로 돌릴 때 쓰는 값 (게임에서는 항상 0)
+static var time_offset := 0.0
+
+
 static func now() -> float:
-	return Time.get_unix_time_from_system()
+	return Time.get_unix_time_from_system() + time_offset
 
 
 static func today() -> String:
-	return Time.get_date_string_from_system()
+	return local_date(now())
+
+
+## 지금 시각(0~23시), 이 기기 시간대 기준
+static func local_hour() -> int:
+	var bias: int = Time.get_time_zone_from_system().get("bias", 0)
+	return Time.get_datetime_dict_from_unix_time(int(now()) + bias * 60).hour
 
 
 ## 유닉스 시간 → 이 기기 시간대 기준 날짜 "YYYY-MM-DD" (today()와 같은 기준)
@@ -106,6 +116,12 @@ func new_character(name: String, look: Dictionary) -> void:
 		"wods": [],
 	}
 	Forms.register("rookie", name)
+	# 은퇴한 선배가 남긴 유산: 코인 절반과 꾸미기 아이템
+	var legacy := Hall.take_legacy()
+	if not legacy.is_empty():
+		data.coins = int(legacy.get("coins", 0))
+		data.owned = legacy.get("owned", {})
+		data.equip = legacy.get("equip", {})
 	check_day()
 	save_game()
 	changed.emit()
@@ -235,6 +251,7 @@ func check_day() -> void:
 		att.best = maxi(int(att.best), int(att.streak))
 		att.last = d
 		data.attend = att
+		add_mental(-2.0)  # 멘탈은 꾸준히 관리해야 유지된다
 		var reward: int = STAMP_REWARDS[(int(att.streak) - 1) % 7]
 		add_coins(reward)
 		data.pending_stamp = reward
@@ -397,7 +414,7 @@ const NIGHT_MULT := 1.5  # 밤(23시~7시)에 자면 회복 1.5배
 
 
 static func is_night() -> bool:
-	var h: int = Time.get_datetime_dict_from_system().hour
+	var h: int = local_hour()
 	return h >= 23 or h < 7
 
 
@@ -406,21 +423,32 @@ func sleep_rate() -> float:
 
 
 ## 에너지가 가득 찰 때까지 남은 분.
+## 깰 때까지 남은 분 (밤잠은 아침 7시까지).
 func sleep_eta_minutes() -> int:
-	return int(ceil((100.0 - gauge("energy")) / sleep_rate() * 60.0))
+	return int(ceil(_sleep_hours_left(now()) * 60.0))
 
 
 func _wake_up() -> void:
 	data.sleeping = false
-	var night: bool = is_night() or Time.get_datetime_dict_from_system().hour < 9
+	var night: bool = is_night() or local_hour() < 9
 	add_gauge("mood", 10.0 if night else 5.0)
 	toast.emit("상쾌한 아침! 푹 잤어요. (기분 +10)" if night else "푹 잤다! 에너지 가득!")
 
 
+## 밤잠(밤 9시 이후에 재움)은 아침 7시까지, 낮잠은 에너지가 다 찰 때까지 잔다.
+func _sleep_hours_left(start_unix: float) -> float:
+	if data.get("night_sleep", false):
+		var bias: int = Time.get_time_zone_from_system().get("bias", 0)
+		var d := Time.get_datetime_dict_from_unix_time(int(start_unix) + bias * 60)
+		var h: float = d.hour + d.minute / 60.0
+		return 7.0 - h if h < 7.0 else 31.0 - h
+	return (100.0 - gauge("energy")) / sleep_rate()
+
+
 func _advance(hours: float, offline: bool) -> void:
-	# 자는 중에 에너지가 다 차면 그 시점에 깨고, 남은 시간은 깨어 있는 것으로 계산
+	# 자는 중에 깰 시각이 지나면 그 시점에 깨고, 남은 시간은 깨어 있는 것으로 계산
 	if data.sleeping:
-		var need := (100.0 - gauge("energy")) / sleep_rate()
+		var need := _sleep_hours_left(now() - hours)
 		if hours > need:
 			_advance_raw(need, offline)
 			_wake_up()
@@ -428,8 +456,6 @@ func _advance(hours: float, offline: bool) -> void:
 				_advance_raw(hours - need, offline)
 			return
 	_advance_raw(hours, offline)
-	if data.sleeping and gauge("energy") >= 100.0:
-		_wake_up()
 
 
 func _advance_raw(hours: float, offline: bool) -> void:
@@ -532,8 +558,98 @@ func title() -> String:
 	return "%s %s" % [Forms.STAGE_PREFIX[stage()], Forms.name_of(form)]
 
 
+## 진화형 외형 + 착용한 꾸미기 아이템.
 func style() -> Dictionary:
-	return Forms.style_of(data.get("form", "rookie"))
+	return style_with(data.get("form", "rookie"), equipped())
+
+
+## extra_items: 착용 칸 -> 아이템 id (상점 미리보기에서 바꿔 끼울 때도 쓴다)
+func style_with(form: String, items: Dictionary) -> Dictionary:
+	var st := Forms.style_of(form).duplicate()
+	for slot in items:
+		var id: String = items[slot]
+		if id == "" or not Shop.ITEMS.has(id) or Shop.ITEMS[id].tab != "wear":
+			continue
+		var add: Dictionary = Shop.ITEMS[id].style
+		if add.has("cap"):
+			st.erase("headband")
+			st.erase("crown")
+		st.merge(add, true)
+	return st
+
+
+## 홈 박스 꾸미기 (벽지·매트·포스터·소품).
+func room() -> Dictionary:
+	var r := {}
+	if not is_created():
+		return r
+	for slot in equipped():
+		var id: String = equipped()[slot]
+		if Shop.ITEMS.has(id) and Shop.ITEMS[id].tab == "room":
+			r.merge(Shop.ITEMS[id].room, true)
+	return r
+
+
+# ---------- 은퇴 ----------
+
+func can_retire() -> bool:
+	return is_created() and stage() >= 4
+
+
+## 은퇴식: 명예의 전당에 올리고 유산을 남긴 뒤 저장을 지운다.
+func retire() -> Dictionary:
+	var entry := {
+		"name": data.name, "look": data.look, "form": data.get("form", "rookie"), "title": title(),
+		"days": days_alive() + 1, "workout_days": workout_days(), "pr": data.pr.duplicate(),
+		"date": today(), "gen": Hall.members().size() + 1,
+	}
+	var legacy := {"coins": coins() / 2, "owned": data.get("owned", {}), "equip": data.get("equip", {})}
+	Hall.retire(entry, legacy)
+	reset_game()
+	return entry
+
+
+# ---------- 상점 ----------
+
+func equipped() -> Dictionary:
+	return data.get("equip", {}) if is_created() else {}
+
+
+func owns(id: String) -> bool:
+	return (data.get("owned", {}) as Dictionary).has(id)
+
+
+func is_equipped(id: String) -> bool:
+	var slot: String = Shop.ITEMS[id].slot
+	return equipped().get(slot, "") == id
+
+
+## 사기. 성공하면 "" (바로 착용), 아니면 이유.
+func buy(id: String) -> String:
+	var item: Dictionary = Shop.ITEMS[id]
+	if owns(id):
+		return "이미 가지고 있어요."
+	if coins() < int(item.price):
+		return "코인이 %d개 부족해요." % (int(item.price) - coins())
+	add_coins(-int(item.price))
+	if not data.has("owned"):
+		data.owned = {}
+	data.owned[id] = true
+	toggle_equip(id)
+	return ""
+
+
+## 착용/해제. 같은 칸의 다른 아이템은 빠진다.
+func toggle_equip(id: String) -> void:
+	if not data.has("equip"):
+		data.equip = {}
+	var slot: String = Shop.ITEMS[id].slot
+	if data.equip.get(slot, "") == id:
+		data.equip.erase(slot)
+	else:
+		data.equip[slot] = id
+	save_game()
+	changed.emit()
 
 
 func mental() -> float:
@@ -741,7 +857,7 @@ func train(moves: Array, extra_xp: Dictionary = {}) -> Array:
 		var mult := variety_mult(id)
 		var per := Moves.xp_per_rep(id)
 		for s in per:
-			xp[s] = float(xp.get(s, 0.0)) + per[s] * reps * mult * XP_SCALE
+			xp[s] = float(xp.get(s, 0.0)) + per[s] * reps * mult * XP_SCALE * (1.0 + Hall.xp_bonus())
 		energy += Moves.energy_per_rep(id) * reps
 		cats[Moves.LIST[id].cat] = true
 		ids_done[id] = true
@@ -899,14 +1015,18 @@ func feed(id: String) -> String:
 
 func toggle_sleep() -> String:
 	data.sleeping = not data.sleeping
+	# 밤 9시~새벽에 재우면 아침 7시까지 푹 잔다
+	var h := local_hour()
+	data.night_sleep = data.sleeping and (h >= 21 or h < 5)
 	var c := _resolve_call(["sleepy", "fake_sleepy"]) if data.sleeping else ""
 	save_game()
 	changed.emit()
 	var msg := "기지개 쭉! 일어났어요."
 	if data.sleeping:
-		msg = "쿨쿨... 잘 자요. 완충까지 약 %d분" % sleep_eta_minutes()
-		if is_night():
-			msg += "\n밤잠 보너스! 회복 1.5배"
+		if data.night_sleep:
+			msg = "쿨쿨... 잘 자요. 아침 7시에 일어나요.\n밤잠: 에너지·컨디션·기분 모두 회복!"
+		else:
+			msg = "쿨쿨... 낮잠. 완충까지 약 %d분" % sleep_eta_minutes()
 	return msg + ("\n" + c if c != "" else "")
 
 
@@ -1127,11 +1247,11 @@ func scold() -> String:
 	_end_call()
 	if fake:
 		data.hist.scold_ok = int(data.hist.scold_ok) + 1
-		add_mental(8.0)
+		add_mental(4.0)
 		add_gauge("mood", -3)
 		save_game()
 		changed.emit()
-		return "......네, 알겠어요. 참을게요.\n(멘탈 +8)"
+		return "......네, 알겠어요. 참을게요.\n(멘탈 +4)"
 	data.hist.scold_bad = int(data.hist.scold_bad) + 1
 	add_gauge("mood", -10)
 	save_game()
