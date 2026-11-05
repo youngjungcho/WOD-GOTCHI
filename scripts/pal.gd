@@ -119,9 +119,13 @@ static func box_scene(ci: CanvasItem, r: Rect2, t: float, floor_ratio: float = 0
 	# 벽지 줄무늬
 	var stripe := Color("fdeedd") if not room.has("wall") else wall_col.darkened(0.04)
 	var x := r.position.x + 4
+	var rainbow := [Color("ffd6dc"), Color("ffe6c7"), Color("fff5c2"), Color("d9f5e4"), Color("d6ecff"), Color("e8dcff")]
+	var k := 0
 	while x < r.end.x:
-		ci.draw_rect(Rect2(x, wall.position.y, 6, wall.size.y), stripe)
+		var sc: Color = rainbow[k % rainbow.size()] if room.get("rainbow", false) else stripe
+		ci.draw_rect(Rect2(x, wall.position.y, 6 if not room.get("rainbow", false) else 16, wall.size.y), sc)
 		x += 16
+		k += 1
 	# 걸레받이
 	ci.draw_rect(Rect2(r.position.x, floor_y - 5, r.size.x, 5), Color("f6d6c8"))
 	ci.draw_rect(Rect2(r.position.x, floor_y - 5, r.size.x, 1), Color("eebfae"))
@@ -179,9 +183,42 @@ static func box_scene(ci: CanvasItem, r: Rect2, t: float, floor_ratio: float = 0
 	ci.draw_rect(Rect2(kb + Vector2(8, 0), Vector2(1, 4)), INK)
 
 
-## 상점에서 산 포스터·소품.
+## 상점에서 산 포스터·소품·가랜드·시계.
 static func _room_extras(ci: CanvasItem, r: Rect2, floor_y: float, room: Dictionary) -> void:
+	# 가랜드: 벽 위쪽을 가로지르는 삼각 깃발
+	if room.has("garland"):
+		var cols := [PINK, MINT, YELLOW, Color("cbb8f5")] if room.garland == "pastel" else [RED, Color("ff9f50"), YELLOW, GREEN, BLUE, Color("a07ce8")]
+		ci.draw_rect(Rect2(r.position.x, r.position.y + 3, r.size.x, 1), DARK)
+		var fx := r.position.x + 2
+		var i := 0
+		while fx < r.end.x - 4:
+			var c: Color = cols[i % cols.size()]
+			for j in 5:
+				ci.draw_rect(Rect2(fx + j * 0.5, r.position.y + 4 + j, 7 - j, 1), c)
+			fx += 11
+			i += 1
+	# 벽시계 (풀업 리그 안쪽 벽)
+	if room.get("clock", false):
+		var cc := Vector2(r.end.x - 26, r.position.y + 26)
+		ci.draw_circle(cc, 7, INK)
+		ci.draw_circle(cc, 6, WHITE)
+		var hr := GameState.local_hour() % 12
+		var a := hr / 12.0 * TAU - PI / 2
+		ci.draw_line(cc, cc + Vector2(cos(a), sin(a)) * 3.5, INK, 1.0)
+		ci.draw_line(cc, cc + Vector2(0, -5), RED, 1.0)
 	match room.get("poster", ""):
+		"heart":
+			var p := Rect2(r.position.x + 110, r.position.y + 10, 20, 24)
+			round_rect(ci, p, INK)
+			ci.draw_rect(p.grow(-1), Color("ffe3ea"))
+			icon(ci, p.position + Vector2(7, 8), "heart", 1)
+			icon(ci, p.position + Vector2(3, 3), "heart", 1)
+		"pr":
+			var p := Rect2(r.position.x + 108, r.position.y + 10, 24, 22)
+			round_rect(ci, p, INK)
+			ci.draw_rect(p.grow(-1), YELLOW)
+			text_center(ci, Rect2(p.position.x, p.position.y + 3, p.size.x, 12), "PR!", RED)
+			ci.draw_rect(Rect2(p.position.x + 4, p.end.y - 5, p.size.x - 8, 1), RED)
 		"cf":
 			var p := Rect2(r.position.x + 110, r.position.y + 10, 20, 26)
 			round_rect(ci, p, INK)
@@ -203,6 +240,31 @@ static func _room_extras(ci: CanvasItem, r: Rect2, floor_y: float, room: Diction
 			ci.draw_rect(Rect2(c + Vector2(-1, 2), Vector2(2, 1)), PINK)
 	var dx := r.end.x - 56  # 왼쪽은 은퇴한 코치 자리
 	match room.get("deco", ""):
+		"cat":
+			var b := Vector2(dx + 7, floor_y - 8)
+			ci.draw_rect(Rect2(b + Vector2(-7, -9), Vector2(4, 4)), INK)
+			ci.draw_rect(Rect2(b + Vector2(3, -9), Vector2(4, 4)), INK)
+			ci.draw_circle(b, 7, INK)
+			ci.draw_circle(b, 6, Color("f2a65a"))
+			ci.draw_rect(Rect2(b + Vector2(-6, -8), Vector2(2, 3)), Color("f2a65a"))
+			ci.draw_rect(Rect2(b + Vector2(4, -8), Vector2(2, 3)), Color("f2a65a"))
+			ci.draw_rect(Rect2(b + Vector2(-3, -2), Vector2(1, 2)), INK)
+			ci.draw_rect(Rect2(b + Vector2(2, -2), Vector2(1, 2)), INK)
+			ci.draw_rect(Rect2(b + Vector2(-1, 1), Vector2(2, 1)), PINK)
+		"dumbbells":
+			for i in 2:
+				var b := Vector2(dx - 2, floor_y - 6 - i * 7)
+				ci.draw_rect(Rect2(b, Vector2(18, 5)), INK)
+				ci.draw_rect(Rect2(b + Vector2(1, 1), Vector2(4, 3)), [BLUE, RED][i])
+				ci.draw_rect(Rect2(b + Vector2(13, 1), Vector2(4, 3)), [BLUE, RED][i])
+				ci.draw_rect(Rect2(b + Vector2(5, 2), Vector2(8, 1)), Color("8a7a96"))
+		"bottle":
+			var b := Vector2(dx + 4, floor_y - 18)
+			ci.draw_rect(Rect2(b + Vector2(2, 0), Vector2(4, 3)), INK)
+			ci.draw_rect(Rect2(b + Vector2(0, 3), Vector2(8, 15)), INK)
+			ci.draw_rect(Rect2(b + Vector2(1, 4), Vector2(6, 13)), Color("bfe7ff"))
+			ci.draw_rect(Rect2(b + Vector2(1, 9), Vector2(6, 8)), Color("6aa8f0"))
+			ci.draw_rect(Rect2(b + Vector2(2, 5), Vector2(1, 3)), WHITE)
 		"trophy":
 			var b := Vector2(dx, floor_y - 16)
 			ci.draw_rect(Rect2(b + Vector2(1, 0), Vector2(12, 8)), INK)

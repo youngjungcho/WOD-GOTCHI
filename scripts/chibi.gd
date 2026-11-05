@@ -11,7 +11,7 @@ const GX := 8  # 캐릭터 x=0이 그리드의 몇 번째 칸인지
 const GY := 44  # 캐릭터 y=0이 그리드의 몇 번째 칸인지
 
 # 칸 색 코드
-enum { NONE, K, SK, SKS, HR, HRH, OF, OFS, PT, SH, EY, WH, BL, BAND, BELT, GOLD, CAPE, SWEAT, MAT, JEWEL, SIL, CAP, CAPS }
+enum { NONE, K, SK, SKS, HR, HRH, OF, OFS, PT, SH, EY, WH, BL, BAND, BELT, GOLD, CAPE, SWEAT, MAT, JEWEL, SIL, CAP, CAPS, PHONE, BOW, RED_RIBBON, BLUE_RIBBON }
 
 const HANG_HAND_Y := -4  # 매달리기 자세에서 손(봉) 높이
 
@@ -25,6 +25,8 @@ const LOGOS := {
 	"heart": [Vector2i(14, 0), Vector2i(15, 0), Vector2i(17, 0), Vector2i(18, 0), Vector2i(14, 1), Vector2i(15, 1), Vector2i(16, 1), Vector2i(17, 1), Vector2i(18, 1), Vector2i(15, 2), Vector2i(16, 2), Vector2i(17, 2), Vector2i(16, 3)],
 	"star": [Vector2i(16, 0), Vector2i(14, 1), Vector2i(15, 1), Vector2i(16, 1), Vector2i(17, 1), Vector2i(18, 1), Vector2i(15, 2), Vector2i(16, 2), Vector2i(17, 2), Vector2i(15, 3), Vector2i(17, 3)],
 	"bolt": [Vector2i(17, 0), Vector2i(16, 1), Vector2i(15, 2), Vector2i(16, 2), Vector2i(17, 2), Vector2i(16, 3), Vector2i(15, 4)],
+	"dumbbell": [Vector2i(13, 0), Vector2i(19, 0), Vector2i(13, 1), Vector2i(14, 1), Vector2i(15, 1), Vector2i(16, 1), Vector2i(17, 1), Vector2i(18, 1), Vector2i(19, 1), Vector2i(13, 2), Vector2i(19, 2)],
+	"plus": [Vector2i(16, 0), Vector2i(15, 1), Vector2i(16, 1), Vector2i(17, 1), Vector2i(16, 2)],
 }
 
 
@@ -145,6 +147,8 @@ static func _texture(g: Grid, look: Dictionary, style: Dictionary) -> Texture2D:
 		GOLD: Color("ffcf4a"), CAPE: Color(style.get("cape", "ff7b8a")), SWEAT: Color("8fd3ff"), MAT: Color("9fe3d0"),
 		JEWEL: Color("ff5a6e"), SIL: style.get("sil", Color.BLACK),
 		CAP: Color(style.get("cap", "3b4a7a")), CAPS: Color(style.get("cap", "3b4a7a")).darkened(0.25),
+		PHONE: Color(style.get("headphones", "ff9db0")), BOW: Color(style.get("bow", "ff6f7f")),
+		RED_RIBBON: Color("ff6f7f"), BLUE_RIBBON: Color("6aa8f0"),
 	}
 	var img := Image.create(GW, GH, false, Image.FORMAT_RGBA8)
 	for i in g.px.size():
@@ -311,6 +315,19 @@ static func build(look: Dictionary, pose: String, p: float, style: Dictionary, b
 		g.swap_in(0, 8 + y0, 32, 10 + y0, [HR, HRH, SK, SKS], BAND)
 		g.rect(28, 7 + y0, 3, 2, BAND)
 		g.put(30, 9 + y0, BAND)
+	if style.has("headphones"):
+		# 머리 위 밴드와 양쪽 귀 덮개
+		for x in range(5, 27):
+			var dx := (x + 0.5 - 16.0) / 11.0
+			var y := int(round(1.0 + 4.0 * dx * dx)) + y0
+			g.put(x, y, PHONE)
+			g.put(x, y - 1, PHONE)
+		g.ell(3.5, 14 + y0, 2.6, 4.2, PHONE)
+		g.ell(28.5, 14 + y0, 2.6, 4.2, PHONE)
+	if style.has("bow"):
+		g.ell(23, 3 + y0, 2.6, 2.2, BOW)
+		g.ell(28, 3 + y0, 2.6, 2.2, BOW)
+		g.ell(25.5, 3 + y0, 1.2, 1.2, BOW)
 	if style.get("crown", false):
 		g.rect(10, -1 + y0, 12, 3, GOLD)
 		for x in [10, 13, 18, 21]:
@@ -341,6 +358,14 @@ static func build(look: Dictionary, pose: String, p: float, style: Dictionary, b
 				g.put(ex, 14 + y0 + j, EY)
 				g.put(ex + 4, 14 + y0 + j, EY)
 		g.rect(13, 16 + y0, 6, 1, EY)
+	if style.get("medal", false) and arms != "cross":
+		var my := int(ty)
+		g.put(14, my - 5, RED_RIBBON)
+		g.put(15, my - 4, RED_RIBBON)
+		g.put(18, my - 5, BLUE_RIBBON)
+		g.put(17, my - 4, BLUE_RIBBON)
+		g.rect(15, my - 3, 3, 3, GOLD)
+		g.put(16, my - 2, JEWEL)
 	if style.get("shades", false):
 		g.rect(8, 14 + y0, 5, 5, EY)
 		g.rect(19, 14 + y0, 5, 5, EY)

@@ -53,6 +53,17 @@ func _ready() -> void:
 	main.pop_to_root()
 	await get_tree().create_timer(0.3).timeout
 	await _shot("phone_home_decorated")
+	# 새 아이템 입혀 보기
+	GameState.data.coins = 3000
+	for id in ["phones_pink", "bow_yellow", "medal", "logo_dumbbell", "shoe_mint", "wall_rainbow", "garland_rainbow", "clock", "poster_pr", "dumbbells", "mat_lemon"]:
+		print("buy ", id, " '", GameState.buy(id), "'")
+	await get_tree().create_timer(0.3).timeout
+	await _shot("phone_home_new_items")
+	GameState.toggle_equip("phones_pink")
+	GameState.toggle_equip("medal")
+	GameState.buy("cap_red")
+	await get_tree().create_timer(0.2).timeout
+	await _shot("phone_home_new_items2")
 	# 배경음악
 	Sfx.bgm("home")
 	await get_tree().create_timer(0.2).timeout
