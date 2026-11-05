@@ -408,7 +408,7 @@ func _run() -> void:
 	main.pop_to_root()
 	print("DONE gauges=", GameState.data.gauges, " stage=", GameState.data.stage)
 	# ---- 출석 · 미션 ----
-	GameState.data.attend = {"last": Time.get_date_string_from_unix_time(int(GameState.now()) - 86400), "streak": 6, "best": 6}
+	GameState.data.attend = {"last": GameState.local_date(GameState.now() - 86400), "streak": 6, "best": 6}
 	GameState.data.missions = {}
 	var c0 := GameState.coins()
 	GameState.check_day()
@@ -430,6 +430,17 @@ func _run() -> void:
 	await press("a")
 	await wait(0.2)
 	await shot("home_with_mission")
+	# ---- 운동 달력 ----
+	print("log today=", GameState.data.get("log", {}).get(GameState.today(), {}))
+	GameState.log_item("테스트 PR", true)
+	main.push(CalendarScreen.new())
+	await wait(0.3)
+	await shot("calendar")
+	print("streaks=", main.top()._streaks())
+	main.top()._shift(-1)
+	await wait(0.2)
+	await shot("calendar_prev")
+	main.pop_to_root()
 	# ---- 첫 안내, 설정, 저장 코드 ----
 	main.pop_to_root()
 	GameState.data.sleeping = false

@@ -27,6 +27,14 @@ func _ready() -> void:
 	await get_tree().create_timer(1.0).timeout
 	await _shot("phone_mission")
 	main.pop_to_root()
+	GameState.data.workout_days = {GameState.today(): true}
+	GameState.log_reps(64)
+	GameState.log_item("오늘의 땀범벅 3:12")
+	GameState.log_item("1RM 데드리프트 60kg 성공", true)
+	main.push(CalendarScreen.new())
+	await get_tree().create_timer(0.3).timeout
+	await _shot("phone_calendar")
+	main.pop_to_root()
 	main.push(Menus.settings_menu(main))
 	await get_tree().create_timer(0.3).timeout
 	await _shot("phone_settings")

@@ -177,6 +177,8 @@ func _finish(ok: bool, why: String = "") -> void:
 		for s in base:
 			xp[s] = base[s] * 0.25
 	msgs.append_array(GameState.apply_workout(xp, 12.0, 6.0, false))
+	var is_pr := ok and msgs.size() > 0 and String(msgs[0]).begins_with("NEW PR")
+	GameState.log_item("1RM %s %skg %s" % [lift_name, Pal.num(weight), "성공" if ok else "실패"], is_pr)
 	var msg := "\n".join(msgs)
 	# 결과 자세를 잠깐 보여준 뒤 메시지
 	get_tree().create_timer(0.9).timeout.connect(func(): main.say(msg, func(): main.pop()))

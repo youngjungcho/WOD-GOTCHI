@@ -67,6 +67,12 @@ static func today() -> String:
 	return Time.get_date_string_from_system()
 
 
+## 유닉스 시간 → 이 기기 시간대 기준 날짜 "YYYY-MM-DD" (today()와 같은 기준)
+static func local_date(unix: float) -> String:
+	var bias: int = Time.get_time_zone_from_system().get("bias", 0)
+	return Time.get_date_string_from_unix_time(int(unix) + bias * 60)
+
+
 # ---------- 생성 / 저장 ----------
 
 func new_character(name: String, look: Dictionary) -> void:
@@ -224,7 +230,7 @@ func check_day() -> void:
 	var d := today()
 	var att: Dictionary = data.get("attend", {"last": "", "streak": 0, "best": 0})
 	if att.last != d:
-		var yesterday := Time.get_date_string_from_unix_time(int(now()) - 86400)
+		var yesterday := local_date(now() - 86400)
 		att.streak = int(att.streak) + 1 if att.last == yesterday else 1
 		att.best = maxi(int(att.best), int(att.streak))
 		att.last = d
@@ -296,6 +302,48 @@ func mission_event(kind: String, amount: int = 1, move_id: String = "") -> void:
 		add_mental(3.0)
 		toast.emit("오늘 미션 올클리어! +%d코인, 멘탈 +3" % MISSION_BONUS)
 	changed.emit()
+
+
+# ---------- 운동 기록 (달력) ----------
+const LOG_DAYS := 400  # 이 일수보다 오래된 기록은 지운다
+
+
+## 오늘 기록. {"reps": 총 횟수, "sessions": 운동 수, "items": [{"text", "pr"}]}
+func _day_log(day: String = "") -> Dictionary:
+	if day == "":
+		day = today()
+	if not data.has("log"):
+		data.log = {}
+	var lg: Dictionary = data.log
+	if not lg.has(day):
+		lg[day] = {"reps": 0, "sessions": 0, "items": []}
+		_prune_log()
+	return lg[day]
+
+
+func _prune_log() -> void:
+	var lg: Dictionary = data.log
+	if lg.size() <= LOG_DAYS:
+		return
+	var keys := lg.keys()
+	keys.sort()
+	for i in keys.size() - LOG_DAYS:
+		lg.erase(keys[i])
+
+
+## 달력에 남길 한 줄. pr=true면 그날 ★
+func log_item(text: String, pr: bool = false) -> void:
+	var dl := _day_log()
+	var items: Array = dl.items
+	items.append({"text": text, "pr": pr})
+	while items.size() > 12:
+		items.pop_front()
+
+
+func log_reps(reps: int) -> void:
+	var dl := _day_log()
+	dl.reps = int(dl.reps) + reps
+	dl.sessions = int(dl.sessions) + 1
 
 
 # ---------- 저장 백업 ----------
@@ -1123,6 +1171,10 @@ func real_checkin() -> String:
 		return "오늘은 이미 체크인했어요!"
 	r.checkin_day = today()
 	add_gauge("mood", 15)
+	log_item("실제 운동 체크인")
+	if not data.has("workout_days"):
+		data.workout_days = {}
+	data.workout_days[today()] = true
 	for s in STATS:
 		data.xp[s] = float(data.xp[s]) + 6.0
 	var msgs := check_stage_up()
@@ -1138,6 +1190,7 @@ func real_pr(key: String, value: float) -> String:
 	if value <= old:
 		return "기존 기록(%s)보다 높아야 보너스를 받아요." % Pal.num(old)
 	prs[key] = value
+	log_item("실제 PR %s %s" % [LIFTS.get(key, "최대 풀업"), Pal.num(value) + ("개" if key == "pullup" else "kg")], true)
 	var stat: String = {"deadlift": "str", "squat": "str", "clean": "tec", "snatch": "tec", "pullup": "gym"}[key]
 	data.xp[stat] = float(data.xp[stat]) + 30.0
 	add_gauge("mood", 20)

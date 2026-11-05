@@ -15,6 +15,7 @@ static func main_menu(main: Node) -> ListScreen:
 		{"label": "실제 운동 기록", "cb": func(): main.push(real_menu(main))},
 		{"label": "화이트보드", "cb": func(): main.pop(); main.push(StatsScreen.new())},
 		{"label": "도감", "cb": func(): main.pop(); main.push(DexScreen.new())},
+		{"label": "운동 달력", "cb": func(): main.pop(); main.push(CalendarScreen.new())},
 		{"label": "설정", "cb": func(): main.push(settings_menu(main))},
 	])
 

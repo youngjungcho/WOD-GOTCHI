@@ -298,6 +298,8 @@ func _finish(kind: String) -> void:
 		if total > int(rb.get(_done[0].id, 0)):
 			rb[_done[0].id] = total
 	msgs.append_array(GameState.train(_done, extra))
+	GameState.log_reps(total)
+	GameState.log_item(_log_text(kind, total), msgs.any(func(m): return String(m).begins_with("NEW PR")))
 	GameState.mission_event("reps", total)
 	if not quit and kind != "cap":
 		GameState.mission_event("wod")
@@ -312,6 +314,22 @@ func _finish(kind: String) -> void:
 			main.pop()
 			if offer_save:
 				main.push(Menus.save_wod_menu(main, wod))))
+
+
+## 달력에 남길 한 줄 요약.
+func _log_text(kind: String, total: int) -> String:
+	var nm := String(wod.name).replace("오늘의 WOD: ", "오늘의 ")
+	if kind == "quit":
+		return "%s 포기 (%d회)" % [nm, total]
+	match _type:
+		"amrap":
+			var rounds := int(total / max(1, _round_reps))
+			return "AMRAP %s %dR+%d" % [nm, rounds, total - rounds * _round_reps]
+		"emom":
+			return "EMOM %s %d/%d분" % [nm, _emom_ok, int(wod.get("minutes", 8))]
+	if kind == "cap":
+		return "%s 타임캡 %d회" % [nm, total]
+	return "%s %s" % [nm, _fmt(_g())]
 
 
 static func _fmt(sec: float) -> String:
