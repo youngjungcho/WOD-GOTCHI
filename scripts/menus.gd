@@ -122,6 +122,7 @@ static func _save_wod(main: Node, w: Dictionary) -> void:
 		return
 	var copy := w.duplicate(true)
 	copy.erase("temp")
+	copy.erase("today")
 	copy.name = String(copy.name).replace("오늘의 WOD: ", "")
 	wods.append(copy)
 	GameState.save_game()

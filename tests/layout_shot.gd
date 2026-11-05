@@ -11,6 +11,8 @@ func _ready() -> void:
 	GameState.data = {}
 	GameState.new_character("치비", {"skin": 0, "hair": 1, "hair_color": 2, "outfit": 3})
 	GameState.mark_tutorial("call")
+	GameState.mark_tutorial("home")
+	GameState.data.erase("pending_stamp")
 	main = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
 	await get_tree().create_timer(0.8).timeout
@@ -20,6 +22,11 @@ func _ready() -> void:
 		await get_tree().create_timer(0.1).timeout
 	await get_tree().create_timer(0.4).timeout
 	await _shot("phone_home")
+	GameState.data.pending_stamp = 10
+	main.push(MissionScreen.new(true))
+	await get_tree().create_timer(1.0).timeout
+	await _shot("phone_mission")
+	main.pop_to_root()
 	main.push(Menus.settings_menu(main))
 	await get_tree().create_timer(0.3).timeout
 	await _shot("phone_settings")

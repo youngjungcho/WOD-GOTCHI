@@ -19,6 +19,7 @@ static func today() -> Dictionary:
 	rng.seed = hash("wod" + GameState.today() + str(GameState.data.get("born", 0)))
 	var w := generate(rng)
 	w.name = "오늘의 WOD: " + w.name
+	w.today = true
 	return w
 
 

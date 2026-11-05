@@ -155,6 +155,7 @@ func _finish(ok: bool, why: String = "") -> void:
 	_success = ok
 	_fail_msg = why
 	GameState.use_attempt(lift)
+	GameState.mission_event("lift")
 	var lift_name: String = GameState.LIFTS[lift]
 	var msgs: Array = []
 	var base: Dictionary = LIFTS[lift].xp

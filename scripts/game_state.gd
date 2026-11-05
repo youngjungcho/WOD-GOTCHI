@@ -43,6 +43,7 @@ func _process(delta: float) -> void:
 		data.last_tick = now()
 		_accum = 0.0
 		_check_calls()
+		check_day()
 		changed.emit()
 	# 웹/모바일은 탭을 닫거나 앱이 종료될 때 저장 기회가 없을 수 있어 주기적으로 저장한다
 	_autosave += delta
@@ -99,6 +100,7 @@ func new_character(name: String, look: Dictionary) -> void:
 		"wods": [],
 	}
 	Forms.register("rookie", name)
+	check_day()
 	save_game()
 	changed.emit()
 
@@ -151,6 +153,7 @@ func catch_up() -> void:
 			_make_away_report(hours, awake)
 	data.last_tick = now()
 	_check_calls()
+	check_day()
 	save_game()
 	changed.emit()
 
@@ -181,6 +184,118 @@ func _make_away_report(hours: float, awake: float) -> void:
 		if fakes > 0:
 			lines.append("꾀부림 %d번은 혼자 참았대요." % fakes)
 	data.away_report = "\n".join(lines)
+
+
+# ---------- 출석 · 일일 미션 · 코인 ----------
+
+const STAMP_REWARDS := [10, 10, 15, 15, 20, 20, 50]  # 연속 출석 1~7일째 코인
+const MISSION_REWARD := 10
+const MISSION_BONUS := 20  # 3개 모두 완료
+
+# id: [설명, 목표치]
+const MISSIONS := {
+	"wod": ["WOD 완주하기", 1],
+	"today_wod": ["오늘의 WOD 하기", 1],
+	"healthy": ["건강식 먹기", 2],
+	"quiz": ["퀴즈 풀기", 1],
+	"praise": ["칭찬하기", 3],
+	"stretch": ["스트레칭 하기", 1],
+	"lift": ["1RM 도전하기", 1],
+	"clean": ["땀 닦고 정리하기", 1],
+	"reps": ["운동 50회 하기", 50],
+	"perfect": ["PERFECT 10번", 10],
+	"variety": ["서로 다른 동작 4가지", 4],
+}
+const EXERCISE_MISSIONS := ["wod", "today_wod", "lift", "reps", "perfect", "variety"]
+
+
+func coins() -> int:
+	return int(data.get("coins", 0))
+
+
+func add_coins(n: int) -> void:
+	data.coins = coins() + n
+
+
+## 날짜가 바뀌었으면 출석 도장을 찍고 미션을 새로 뽑는다.
+func check_day() -> void:
+	if not is_created():
+		return
+	var d := today()
+	var att: Dictionary = data.get("attend", {"last": "", "streak": 0, "best": 0})
+	if att.last != d:
+		var yesterday := Time.get_date_string_from_unix_time(int(now()) - 86400)
+		att.streak = int(att.streak) + 1 if att.last == yesterday else 1
+		att.best = maxi(int(att.best), int(att.streak))
+		att.last = d
+		data.attend = att
+		var reward: int = STAMP_REWARDS[(int(att.streak) - 1) % 7]
+		add_coins(reward)
+		data.pending_stamp = reward
+	var m: Dictionary = data.get("missions", {})
+	if m.get("day", "") != d:
+		data.missions = {"day": d, "list": _pick_missions(), "bonus": false, "moves": {}}
+
+
+func _pick_missions() -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("mission" + today() + str(data.get("born", 0)))
+	var ids: Array = MISSIONS.keys()
+	for i in range(ids.size() - 1, 0, -1):
+		var j := rng.randi() % (i + 1)
+		var tmp = ids[i]
+		ids[i] = ids[j]
+		ids[j] = tmp
+	# 운동 미션 1개 + 나머지 2개
+	var out := []
+	for id in ids:
+		if EXERCISE_MISSIONS.has(id):
+			out.append(id)
+			break
+	for id in ids:
+		if out.size() >= 3:
+			break
+		if not out.has(id):
+			out.append(id)
+	var list := []
+	for id in out:
+		list.append({"id": id, "progress": 0, "done": false})
+	return list
+
+
+func missions_left() -> int:
+	var n := 0
+	for m in (data.get("missions", {}) as Dictionary).get("list", []):
+		if not m.done:
+			n += 1
+	return n
+
+
+## 게임 곳곳에서 부른다. kind가 오늘 미션이면 진행도를 올리고, 완료되면 보상.
+func mission_event(kind: String, amount: int = 1, move_id: String = "") -> void:
+	if not is_created():
+		return
+	check_day()
+	var ms: Dictionary = data.missions
+	if kind == "variety":
+		ms.moves[move_id] = true
+	for m in ms.list:
+		if m.id != kind or m.done:
+			continue
+		var target: int = MISSIONS[kind][1]
+		m.progress = ms.moves.size() if kind == "variety" else mini(target, int(m.progress) + amount)
+		if int(m.progress) >= target:
+			m.done = true
+			add_coins(MISSION_REWARD)
+			add_gauge("mood", 5)
+			toast.emit("미션 완료! %s (+%d코인)" % [MISSIONS[kind][0], MISSION_REWARD])
+			Sfx.play("levelup")
+	if not ms.bonus and missions_left() == 0:
+		ms.bonus = true
+		add_coins(MISSION_BONUS)
+		add_mental(3.0)
+		toast.emit("오늘 미션 올클리어! +%d코인, 멘탈 +3" % MISSION_BONUS)
+	changed.emit()
 
 
 # ---------- 저장 백업 ----------
@@ -592,6 +707,7 @@ func train(moves: Array, extra_xp: Dictionary = {}) -> Array:
 		xp[s] = float(xp.get(s, 0.0)) + float(extra_xp[s])
 	var picks := daily_picks()
 	for id in ids_done:
+		mission_event("variety", 0, id)
 		if picks.has(id):
 			msgs.append("오늘의 추천 동작 '%s' 보너스!" % Moves.name_of(id))
 		var mlog: Array = data.move_log.get(id, [])
@@ -693,6 +809,8 @@ func feed(id: String) -> String:
 	var cheat := Foods.is_cheat(id)
 	var hk := "cheat" if cheat else "healthy"
 	data.hist[hk] = int(data.hist[hk]) + 1
+	if not cheat:
+		mission_event("healthy")
 	# 오늘 치팅 횟수: 한도를 넘기면 기분은 덜 오르고 능력치는 더 떨어진다
 	if data.get("cheat_day", "") != today():
 		data.cheat_day = today()
@@ -749,6 +867,7 @@ func stretch_result(score: float) -> String:
 	add_gauge("cond", 8.0 + 22.0 * score)
 	add_gauge("mood", 3)
 	add_gauge("energy", 2)
+	mission_event("stretch")
 	var lines := ["몸이 풀렸어요! 컨디션 +%d" % int(8.0 + 22.0 * score)]
 	if score >= 0.7:
 		data.xp.tec = float(data.xp.tec) + 2.0
@@ -776,6 +895,7 @@ func quiz_result(correct: int, total: int) -> String:
 		data.quiz_day = today()
 		data.quiz_count = 0
 	data.quiz_count = int(data.quiz_count) + 1
+	mission_event("quiz")
 	var lines := ["%d문제 중 %d개 정답!" % [total, correct]]
 	if full:
 		data.xp.tec = float(data.xp.tec) + correct * 2.0
@@ -798,6 +918,7 @@ func clean_up() -> String:
 		return "이미 깨끗해요!"
 	data.mess = 0
 	add_gauge("mood", 6)
+	mission_event("clean")
 	var c := _resolve_call(["dirty"])
 	changed.emit()
 	return "땀 닦고 초크 정리 완료!" + ("\n" + c if c != "" else "")
@@ -811,6 +932,7 @@ func praise() -> String:
 		return "헤헤... (이미 많이 들었어요)"
 	data.praise_at = now()
 	add_gauge("mood", 18)
+	mission_event("praise")
 	var c := _resolve_call(["lonely"])
 	changed.emit()
 	return "하이파이브! 의욕이 솟아요!" + ("\n" + c if c != "" else "")

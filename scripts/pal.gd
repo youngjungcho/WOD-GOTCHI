@@ -190,6 +190,8 @@ const ICONS := {
 	"sun": ["...y...", ".y.y.y.", "..yyy..", "yyyyyyy", "..yyy..", ".y.y.y.", "...y..."],
 	"quiz": [".kkkk.", "k....k", "....k.", "...k..", "...k..", "......", "...k.."],
 	"more": ["kk.kk.kk", "kk.kk.kk"],
+	"coin": [".kkkk.", "kyyyyk", "kywyyk", "kyyyyk", "kyyyyk", ".kkkk."],
+	"star": ["...k...", "..kyk..", "kkkyykk", "kyyyyyk", ".kyyyk.", ".kykyk.", "kk...kk"],
 }
 const ICON_COLORS := {"k": INK, "r": RED, "y": YELLOW, "b": Color("c8875a"), "w": WHITE, "g": GREEN, "t": Color("8fd3ff"), "p": PINK}
 

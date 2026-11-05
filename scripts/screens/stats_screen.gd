@@ -30,6 +30,8 @@ func _draw() -> void:
 	Pal.text(self, Vector2(x, y), GameState.title(), Pal.BLUE)
 	y += 12
 	Pal.text(self, Vector2(x, y), GameState.next_stage_hint(), Pal.DARK)
+	var ct := "%d코인" % GameState.coins()
+	Pal.text(self, Vector2(r.end.x - 6 - Pal.text_width(ct), r.position.y + 4), ct, Pal.DARK)
 	y += 15
 	for s in GameState.STATS:
 		var lv := GameState.level(s)

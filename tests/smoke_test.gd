@@ -61,6 +61,7 @@ func _run() -> void:
 	# 흐름 테스트를 위해 첫 안내는 미리 본 것으로 (안내 자체는 뒤에서 따로 확인)
 	GameState.mark_tutorial("home")
 	GameState.mark_tutorial("call")
+	GameState.data.erase("pending_stamp")
 	await wait(0.6)
 	await shot("welcome_msg")
 	await press("a"); await press("a")
@@ -406,6 +407,29 @@ func _run() -> void:
 	await press("a"); await wait(0.1); await press("a")
 	main.pop_to_root()
 	print("DONE gauges=", GameState.data.gauges, " stage=", GameState.data.stage)
+	# ---- 출석 · 미션 ----
+	GameState.data.attend = {"last": Time.get_date_string_from_unix_time(int(GameState.now()) - 86400), "streak": 6, "best": 6}
+	GameState.data.missions = {}
+	var c0 := GameState.coins()
+	GameState.check_day()
+	print("attend=", GameState.data.attend, " coins +", GameState.coins() - c0, " missions=", GameState.data.missions.list)
+	for m in GameState.data.missions.list:
+		for i in 60:
+			if m.done:
+				break
+			if m.id == "variety":
+				GameState.mission_event("variety", 0, "move%d" % i)
+			else:
+				GameState.mission_event(m.id)
+	print("missions_left=", GameState.missions_left(), " bonus=", GameState.data.missions.bonus, " coins=", GameState.coins())
+	main.pop_to_root()
+	await wait(0.3)
+	print("top after stamp=", main.top().get_script().get_global_name())
+	await wait(0.8)
+	await shot("mission_stamp")
+	await press("a")
+	await wait(0.2)
+	await shot("home_with_mission")
 	# ---- 첫 안내, 설정, 저장 코드 ----
 	main.pop_to_root()
 	GameState.data.sleeping = false

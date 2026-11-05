@@ -298,6 +298,11 @@ func _finish(kind: String) -> void:
 		if total > int(rb.get(_done[0].id, 0)):
 			rb[_done[0].id] = total
 	msgs.append_array(GameState.train(_done, extra))
+	GameState.mission_event("reps", total)
+	if not quit and kind != "cap":
+		GameState.mission_event("wod")
+		if wod.get("today", false):
+			GameState.mission_event("today_wod")
 	Sfx.play("fail" if quit or kind == "cap" else "success")
 	_say("헥헥... 끝!" if not quit else "오늘은 여기까지...", 3.0)
 	var msg := "\n".join(msgs)
@@ -521,6 +526,7 @@ func on_button(btn: String, down: bool) -> void:
 			if d <= w * 0.2:
 				_combo += 1
 				_pop_word("PERFECT" if _combo < 3 else "콤보 %d!" % _combo)
+				GameState.mission_event("perfect")
 				_add_hr(4.0 * (1.0 - mini(_combo, 5) * 0.1))
 				Sfx.play("perfect")
 				_rep_done()
@@ -596,6 +602,8 @@ func on_button(btn: String, down: bool) -> void:
 				return
 			var perfect := absf(_clock - nt) <= win * 0.4
 			_pop_word("PERFECT" if perfect else "GOOD")
+			if perfect:
+				GameState.mission_event("perfect")
 			Sfx.play("perfect" if perfect else "good")
 			_add_hr(2.0)
 			_miss_run = 0

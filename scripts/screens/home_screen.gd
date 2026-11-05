@@ -7,7 +7,7 @@ const SCENE := Rect2(0, 30, 180, 116)
 const FLOOR_RATIO := 0.78
 const BAR_Y := 147.0  # 바로가기 아이콘 줄
 const QUICK := [
-	["food", "밥"], ["dumbbell", "운동"], ["moon", "잠"], ["cond", "케어"], ["quiz", "퀴즈"], ["more", "메뉴"],
+	["food", "밥"], ["dumbbell", "운동"], ["moon", "잠"], ["cond", "케어"], ["quiz", "퀴즈"], ["star", "미션"], ["more", "메뉴"],
 ]
 
 var _x := 90.0
@@ -55,6 +55,9 @@ func _check_evolution() -> void:
 	if not GameState.tutorial_seen("home"):
 		GameState.mark_tutorial("home")
 		_guide(0)
+		return
+	if int(d.get("pending_stamp", 0)) > 0:
+		main.push(MissionScreen.new(true))
 		return
 	if String(d.get("away_report", "")) != "":
 		var rep: String = d.away_report
@@ -122,7 +125,7 @@ func button_labels() -> Dictionary:
 
 
 func _quick_rect(i: int) -> Rect2:
-	return Rect2(2 + i * 29.5, BAR_Y, 28, 23)
+	return Rect2(1 + i * 25.4, BAR_Y, 24.5, 23)
 
 
 ## 바로가기 아이콘 눌렀을 때.
@@ -140,6 +143,8 @@ func _quick(i: int) -> void:
 		4:
 			main.push(QuizScreen.new())
 		5:
+			main.push(MissionScreen.new())
+		6:
 			main.push(Menus.main_menu(main))
 
 
@@ -264,6 +269,9 @@ func _draw() -> void:
 		var iw: int = (Pal.ICONS[ic][0] as String).length()
 		Pal.icon(self, Vector2(qr.position.x + (qr.size.x - iw) * 0.5, qr.position.y + 2), ic)
 		Pal.text_center(self, Rect2(qr.position.x - 2, qr.position.y + 11, qr.size.x + 4, 11), lbl, Pal.INK)
+		# 남은 미션이 있으면 빨간 점
+		if i == 5 and GameState.missions_left() > 0:
+			draw_circle(qr.position + Vector2(qr.size.x - 3, 3), 3, Pal.RED)
 	# 대화창
 	var r := Rect2(2, BAR_Y + 25, size.x - 4, size.y - BAR_Y - 27)
 	Pal.window(self, r)
