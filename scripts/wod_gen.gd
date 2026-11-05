@@ -4,7 +4,7 @@ extends RefCounted
 ## WOD 사전: {name, type: fortime|amrap|emom, rounds, minutes(amrap·emom), cap(fortime 타임캡 분), moves}
 ## 시간은 모두 게임 시간(분). 게임 시계는 실제 1초에 TIME_SCALE초씩 흐른다.
 
-const TIME_SCALE := 6.0
+const TIME_SCALE := 8.0
 const TYPE_NAMES := {"fortime": "FOR TIME", "amrap": "AMRAP", "emom": "EMOM"}
 
 const NAMES := [
@@ -43,7 +43,7 @@ static func generate(rng: RandomNumberGenerator) -> Dictionary:
 		n_moves = rng.randi_range(3, 5)
 	var ids := _pick_moves(rng, n_moves)
 	# 실제 플레이가 1~2분 정도가 되도록 횟수를 맞춘다 (단계가 오를수록 조금씩 늘어남)
-	var lv_mult := 0.8 + 0.12 * GameState.stage()
+	var lv_mult := 0.65 + 0.1 * GameState.stage()
 	var moves := []
 	for id in ids:
 		var reps := _reps_for(rng, id, lv_mult)
@@ -51,22 +51,22 @@ static func generate(rng: RandomNumberGenerator) -> Dictionary:
 			"amrap":
 				reps = maxi(2, int(reps * 0.7))
 			"emom":
-				# 실제 약 6.5초 안에 끝낼 수 있는 횟수
-				reps = clampi(int(6.5 / Moves.rival_sec_per_rep(id)), 2, 15)
+				# 1분(실제 7.5초) 중 약 5초 안에 끝낼 수 있는 횟수
+				reps = clampi(int(5.0 / Moves.rival_sec_per_rep(id)), 2, 12)
 		if chipper:
-			reps = int(reps * 2.2)
+			reps = int(reps * 1.8)
 		moves.append({"id": id, "reps": reps})
 	var w := {"name": NAMES[rng.randi() % NAMES.size()], "type": type, "rounds": 1, "moves": moves, "temp": true}
 	match type:
 		"fortime":
-			w.rounds = 1 if chipper else rng.randi_range(2, 3)
+			w.rounds = 1 if chipper else rng.randi_range(1, 3)
 			w.cap = cap_for(w)
 			if chipper:
 				w.name += " 칩퍼"
 		"amrap":
-			w.minutes = rng.randi_range(5, 10)
+			w.minutes = rng.randi_range(4, 8)
 		"emom":
-			w.minutes = [6, 8, 10][rng.randi() % 3]
+			w.minutes = [4, 6, 8][rng.randi() % 3]
 	return w
 
 

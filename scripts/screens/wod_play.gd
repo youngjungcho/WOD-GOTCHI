@@ -10,8 +10,8 @@ extends Screen
 
 const RIVAL_NAME := "토리"
 const HR_RED := 85.0
-const HR_RECOVER := 55.0
-const TRANS_TIME := 1.0
+const HR_RECOVER := 65.0
+const TRANS_TIME := 0.4
 
 var wod: Dictionary
 var _queue: Array = []  # [{id, reps, round}]
@@ -301,7 +301,7 @@ func _finish(kind: String) -> void:
 	_say("헥헥... 끝!" if not quit else "오늘은 여기까지...", 3.0)
 	var msg := "\n".join(msgs)
 	var offer_save: bool = wod.get("temp", false) and not quit
-	get_tree().create_timer(1.6).timeout.connect(func():
+	get_tree().create_timer(0.8).timeout.connect(func():
 		main.say(msg, func():
 			main.pop()
 			if offer_save:
@@ -324,7 +324,7 @@ func _process(delta: float) -> void:
 	_cool = max(0.0, _cool - delta)
 	match _state:
 		"intro":
-			if _phase_t >= 2.4:
+			if _phase_t >= 1.2:
 				_state = "play"
 				_phase_t = 0.0
 				Sfx.play("select")
@@ -337,7 +337,7 @@ func _process(delta: float) -> void:
 		return
 	# 심박: 손을 떼고 있으면 빨리 내려간다
 	var idle := _clock - _last_input > 0.6
-	var decay := 14.0 if _locked else (8.0 if idle else 2.5)
+	var decay := 20.0 if _locked else (8.0 if idle else 2.5)
 	_hr = max(15.0, _hr - decay * delta)
 	if _locked and _hr <= HR_RECOVER:
 		_locked = false
@@ -894,7 +894,7 @@ func _draw_info() -> void:
 	Pal.window(self, r)
 	match _state:
 		"intro":
-			var n := 3 - int(_phase_t / 0.8)
+			var n := 3 - int(_phase_t / 0.4)
 			Pal.text(self, r.position + Vector2(8, 5), wod.name, Pal.INK)
 			Pal.text(self, r.position + Vector2(8, 34), _rule_text(), Pal.DARK)
 			Pal.text(self, r.position + Vector2(8, 19), "%d..." % maxi(n, 1) if n > 0 else "GO!", Pal.RED)

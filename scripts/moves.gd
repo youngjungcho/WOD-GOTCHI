@@ -124,8 +124,8 @@ static func energy_per_rep(id: String) -> float:
 ## 아무것도 안 정했을 때 기본 횟수.
 static func default_reps(id: String) -> int:
 	if is_rhythm(id):
-		return clampi(4 + GameState.level("gym"), 5, 15)
-	return 10
+		return clampi(3 + GameState.level("gym"), 4, 10)
+	return 8
 
 
 static func unlocked(id: String) -> bool:
