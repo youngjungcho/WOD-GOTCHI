@@ -1,6 +1,6 @@
 class_name QuizScreen
 extends Screen
-## 크로스핏 퀴즈 3문제. 자는 중이면 '꿈속 퀴즈'. 에너지를 쓰지 않는다.
+## 운동·건강 퀴즈 3문제 (여러 분야 섞어서). 자는 중이면 '꿈속 퀴즈'. 에너지를 쓰지 않는다.
 ## A: 다음 보기, B: 고르기 (보기를 직접 터치해도 된다), 메뉴: 그만두기
 
 const COUNT := 3
@@ -98,12 +98,17 @@ func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), Pal.LIGHT)
 	if _i >= _qs.size():
 		return
-	var title := "꿈속 크로스핏 퀴즈" if _dream else "크로스핏 퀴즈"
+	var title := "꿈속 퀴즈" if _dream else "운동·건강 퀴즈"
 	Pal.text(self, Vector2(8, 6), "%s  %d/%d" % [title, _i + 1, _qs.size()], Pal.WHITE if _dream else Pal.INK)
 	var qr := Rect2(4, 24, size.x - 8, 86)
 	Pal.window(self, qr)
 	Pal.athlete(self, qr.position + Vector2(4, 30), GameState.data.look, "happy" if _dream else "idle", 1, t, 0.0, GameState.style(), 30)
-	Pal.text_wrap(self, qr.position + Vector2(42, 10), _qs[_i].q, qr.size.x - 50, Pal.INK, 10, 5)
+	# 분야 꼬리표
+	var cat: String = _qs[_i].cat
+	var tw := Pal.text_width(cat) + 8
+	Pal.round_rect(self, Rect2(qr.position.x + 42, qr.position.y + 7, tw, 13), Pal.MINT)
+	Pal.text(self, qr.position + Vector2(46, 8), cat, Pal.INK)
+	Pal.text_wrap(self, qr.position + Vector2(42, 26), _qs[_i].q, qr.size.x - 50, Pal.INK, 10, 4)
 	var opts: Array = _qs[_i].options
 	for k in opts.size():
 		var r := _opt_rect(k)

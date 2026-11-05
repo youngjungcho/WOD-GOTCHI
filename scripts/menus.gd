@@ -10,7 +10,7 @@ static func main_menu(main: Node) -> ListScreen:
 		{"label": "운동하기", "cb": func(): _try_workout(main, func(): main.push(workout_menu(main)))},
 		{"label": "깨우기" if sleeping else "재우기", "cb": func(): _done(main, GameState.toggle_sleep())},
 		{"label": "케어", "cb": func(): main.push(care_menu(main))},
-		{"label": "꿈속 퀴즈" if sleeping else "크로스핏 퀴즈", "cb": func(): main.pop(); main.push(QuizScreen.new())},
+		{"label": "꿈속 퀴즈" if sleeping else "운동·건강 퀴즈", "cb": func(): main.pop(); main.push(QuizScreen.new())},
 		{"label": "내 WOD 짜기", "cb": func(): main.push(wod_list_menu(main))},
 		{"label": "실제 운동 기록", "cb": func(): main.push(real_menu(main))},
 		{"label": "화이트보드", "cb": func(): main.pop(); main.push(StatsScreen.new())},

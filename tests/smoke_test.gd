@@ -353,6 +353,13 @@ func _run() -> void:
 	print("sleep eta=", GameState.sleep_eta_minutes(), "min rate=", GameState.sleep_rate())
 	await wait(0.3)
 	await shot("sleeping")
+	print("quiz total=", Quiz.total())
+	for i in 3:
+		var qs := Quiz.pick(3)
+		var line := []
+		for q in qs:
+			line.append("%s:%s(%s)" % [q.cat, q.q, q.options[q.answer]])
+		print(" | ".join(line))
 	# 꿈속 퀴즈
 	main.push(QuizScreen.new())
 	await wait(0.3)
