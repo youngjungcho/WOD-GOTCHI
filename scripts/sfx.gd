@@ -34,8 +34,9 @@ func _ready() -> void:
 
 
 func play(name: String) -> void:
+	Settings.ensure()
 	# 앱 시작 직후(다른 autoload가 먼저 준비될 때)에는 플레이어가 아직 없다
-	if not SOUNDS.has(name) or _players.is_empty():
+	if not Settings.sound or not SOUNDS.has(name) or _players.is_empty():
 		return
 	if not _cache.has(name):
 		_cache[name] = _build(SOUNDS[name])
@@ -66,3 +67,10 @@ func _build(notes: Array) -> AudioStreamWAV:
 	s.stereo = false
 	s.data = bytes
 	return s
+
+
+## 짧은 진동 (지원하는 기기에서만, 설정에서 끌 수 있다).
+func buzz(ms: int = 15) -> void:
+	Settings.ensure()
+	if Settings.vibrate:
+		Input.vibrate_handheld(ms)

@@ -15,7 +15,7 @@ static func main_menu(main: Node) -> ListScreen:
 		{"label": "실제 운동 기록", "cb": func(): main.push(real_menu(main))},
 		{"label": "화이트보드", "cb": func(): main.pop(); main.push(StatsScreen.new())},
 		{"label": "도감", "cb": func(): main.pop(); main.push(DexScreen.new())},
-		{"label": "처음부터 다시", "cb": func(): main.push(reset_menu(main))},
+		{"label": "설정", "cb": func(): main.push(settings_menu(main))},
 	])
 
 
@@ -82,9 +82,6 @@ static func workout_menu(main: Node) -> ListScreen:
 		"hint": "오늘 시기를 다 썼어요. 내일 다시!",
 		"desc": "데드·스쿼트·클린·스내치 최대 무게 도전! 종목마다 하루 %d번." % GameState.ATTEMPTS_PER_DAY,
 	})
-	items.append({"label": "조작 설명 다시 보기", "cb": func():
-		GameState.reset_tutorials()
-		_done(main, "다음 운동부터 조작 설명을 다시 보여드릴게요."), "desc": "동작별 버튼 사용법을 다시 봐요."})
 	return ListScreen.new("운동 고르기", items)
 
 
@@ -217,6 +214,46 @@ static func real_menu(main: Node) -> ListScreen:
 	return ListScreen.new("실제 운동 기록", [
 		{"label": "오늘 나도 운동했어요!", "cb": func(): _done(main, GameState.real_checkin())},
 		{"label": "실제 PR 입력", "cb": func(): main.pop(); main.push(RealPrScreen.new())},
+	])
+
+
+static func settings_menu(main: Node) -> ListScreen:
+	Settings.ensure()
+	return ListScreen.new("설정", [
+		{"label": "소리: %s" % ("켜짐" if Settings.sound else "꺼짐"), "cb": func():
+			Settings.sound = not Settings.sound
+			Settings.save()
+			main.pop()
+			main.push(settings_menu(main)), "desc": "효과음을 켜고 꺼요."},
+		{"label": "진동: %s" % ("켜짐" if Settings.vibrate else "꺼짐"), "cb": func():
+			Settings.vibrate = not Settings.vibrate
+			Settings.save()
+			main.pop()
+			main.push(settings_menu(main)), "desc": "지원하는 기기에서 운동·호출 때 진동해요."},
+		{"label": "저장 백업", "cb": func(): main.push(backup_menu(main)), "desc": "저장 코드를 복사하거나 불러와요. 기기를 바꿀 때 써요."},
+		{"label": "게임 방법 다시 보기", "cb": func():
+			var t: Dictionary = GameState.data.get("tutorials", {})
+			t.erase("home")
+			t.erase("call")
+			GameState.save_game()
+			main.pop_to_root(), "desc": "처음 시작할 때 나온 안내를 다시 봐요."},
+		{"label": "조작 설명 다시 보기", "cb": func():
+			var keep := {}
+			var t: Dictionary = GameState.data.get("tutorials", {})
+			for k in ["home", "call"]:
+				if t.has(k):
+					keep[k] = true
+			GameState.data.tutorials = keep
+			GameState.save_game()
+			_done(main, "다음 운동부터 조작 설명을 다시 보여드릴게요."), "desc": "운동할 때 버튼 사용법을 다시 봐요."},
+		{"label": "처음부터 다시", "cb": func(): main.push(reset_menu(main)), "desc": "캐릭터를 새로 만들어요. 도감은 남아요."},
+	])
+
+
+static func backup_menu(main: Node) -> ListScreen:
+	return ListScreen.new("저장 백업", [
+		{"label": "저장 코드 보기·복사", "cb": func(): main.push(SaveCodeScreen.new(true)), "desc": "코드를 복사해 메모장이나 메신저에 보관하세요."},
+		{"label": "저장 코드 불러오기", "cb": func(): main.push(SaveCodeScreen.new(false)), "desc": "보관한 코드를 붙여넣으면 그 캐릭터로 바뀌어요."},
 	])
 
 

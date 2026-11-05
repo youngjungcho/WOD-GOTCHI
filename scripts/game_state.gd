@@ -142,13 +142,72 @@ func catch_up() -> void:
 		return
 	var hours: float = max(0.0, (now() - float(data.last_tick)) / 3600.0)
 	if hours > 0.01:
+		# 깨어 있던 시간 (자고 있었다면 완충 후부터)
+		var awake := hours
+		if data.sleeping:
+			awake = max(0.0, hours - (100.0 - gauge("energy")) / sleep_rate())
 		_advance(hours, true)
-		if hours >= 1.0:
-			toast.emit("%s 동안 자리를 비웠어요." % _fmt_hours(hours))
+		if hours >= 0.5:
+			_make_away_report(hours, awake)
 	data.last_tick = now()
 	_check_calls()
 	save_game()
 	changed.emit()
+
+
+## 자리 비운 동안의 부재중 호출 요약. 홈 화면이 data.away_report를 보여준다.
+func _make_away_report(hours: float, awake: float) -> void:
+	var needs := []
+	if gauge("food") < 30.0:
+		needs.append("배고파요")
+	if gauge("energy") < 25.0:
+		needs.append("졸려요")
+	if int(data.mess) >= 2:
+		needs.append("땀범벅이에요")
+	if gauge("mood") < 35.0:
+		needs.append("심심해요")
+	var gap := lerpf(40.0, 120.0, mental() / 100.0)
+	var fakes := mini(6, int(awake * 60.0 / gap))
+	var lines := ["자리를 비운 %s 동안" % _fmt_hours(hours)]
+	if needs.is_empty() and fakes == 0:
+		lines.append("얌전히 잘 지냈어요!")
+	else:
+		lines.append("부재중 호출 %d번!" % (needs.size() + fakes))
+		if needs.size() > 0:
+			lines.append("지금: " + ", ".join(needs))
+			# 초반(등록생·스케일드)은 너그럽게, 이후로는 무시한 호출로 기록
+			if stage() >= 2:
+				data.hist.ignored = int(data.hist.ignored) + needs.size()
+		if fakes > 0:
+			lines.append("꾀부림 %d번은 혼자 참았대요." % fakes)
+	data.away_report = "\n".join(lines)
+
+
+# ---------- 저장 백업 ----------
+const CODE_PREFIX := "WG1:"
+
+
+## 저장 데이터를 한 줄 코드로 (복사해서 다른 기기에 붙여넣을 수 있다).
+func export_code() -> String:
+	save_game()
+	return CODE_PREFIX + Marshalls.utf8_to_base64(JSON.stringify(data))
+
+
+## 저장 코드 불러오기. 성공하면 "", 실패하면 이유.
+func import_code(code: String) -> String:
+	code = code.strip_edges()
+	if not code.begins_with(CODE_PREFIX):
+		return "저장 코드가 아니에요. 'WG1:'로 시작해야 해요."
+	var text := Marshalls.base64_to_utf8(code.substr(CODE_PREFIX.length()))
+	var parsed = JSON.parse_string(text)
+	if typeof(parsed) != TYPE_DICTIONARY or not parsed.has("name"):
+		return "코드가 잘못됐거나 일부가 빠졌어요."
+	data = parsed
+	_migrate()
+	catch_up()
+	save_game()
+	changed.emit()
+	return ""
 
 
 # ---------- 조작 설명 ----------
@@ -809,6 +868,7 @@ func spawn_call(type: String = "") -> void:
 		type = fakes[randi() % fakes.size()]
 	data.call = {"type": type, "at": now()}
 	Sfx.play("call")
+	Sfx.buzz(80)
 	toast.emit("%s이(가) 부르고 있어요!" % data.name)
 	changed.emit()
 

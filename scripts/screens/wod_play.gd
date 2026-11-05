@@ -177,6 +177,7 @@ func _rep_done(amount: float = 1.0) -> void:
 		_pop = str(int(round(_reps)))
 		_pop_t = t
 		Sfx.play("good")
+		Sfx.buzz(12)
 	var left := int(_q().reps) - int(_reps)
 	if left == 3 and not _said.has("3left%d" % _seg):
 		_said["3left%d" % _seg] = true
@@ -656,6 +657,8 @@ func button_hints() -> Dictionary:
 func _pop_word(s: String) -> void:
 	_pop = s
 	_pop_t = t
+	if s in ["No Rep!", "MISS", "줄 걸림!", "삐끗!", "너무 빨라!", "박자!", "시간 초과!"]:
+		Sfx.buzz(40)
 
 
 # ---------- 그리기 ----------

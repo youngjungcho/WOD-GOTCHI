@@ -34,12 +34,45 @@ func _process(delta: float) -> void:
 	_check_evolution()
 
 
-## 진화가 대기 중이면 (다른 화면이 없을 때) 진화 연출을 띄운다.
+const GUIDE := [
+	"반가워요! 여기는 %s의 크로스핏 박스예요.\n맨 위 아이콘은 밥·힘·기분·몸 게이지예요.",
+	"아래 아이콘으로 밥, 운동, 잠, 케어, 퀴즈를\n바로 할 수 있어요. 버튼 이름도 바뀌어요!",
+	"가끔 캐릭터가 '!' 하고 불러요.\nA 들어주기 / B 단호하게!\n진짜 필요하면 들어주고, 꾀부리면 단호하게.",
+	"가짜 배고픔은 진짜랑 똑같이 말해요.\n밥 게이지가 넉넉하면 꾀부림이에요!",
+	"운동한 날이 쌓이고 능력치가 오르면 진화해요.\n조건은 B(상태) 화이트보드에서 볼 수 있어요.",
+]
+
+
+## 홈이 맨 위일 때 보여줄 것들: 진화 연출 > 첫 안내 > 부재중 호출 > 첫 호출 팁
 func _check_evolution() -> void:
-	var evo: Dictionary = GameState.data.get("pending_evo", {})
-	if evo.is_empty() or main.top() != self:
+	if main.top() != self:
 		return
-	main.push(EvolutionScreen.new(evo.from, evo.to))
+	var d: Dictionary = GameState.data
+	var evo: Dictionary = d.get("pending_evo", {})
+	if not evo.is_empty():
+		main.push(EvolutionScreen.new(evo.from, evo.to))
+		return
+	if not GameState.tutorial_seen("home"):
+		GameState.mark_tutorial("home")
+		_guide(0)
+		return
+	if String(d.get("away_report", "")) != "":
+		var rep: String = d.away_report
+		d.away_report = ""
+		main.say(rep)
+		return
+	if GameState.call_active() and not GameState.tutorial_seen("call"):
+		GameState.mark_tutorial("call")
+		main.say("앗, 처음으로 불렀어요!\n밥 게이지를 보고 진짜인지 판단해요.\nA 들어주기, B 단호하게!")
+
+
+func _guide(i: int) -> void:
+	if i >= GUIDE.size():
+		return
+	var text: String = GUIDE[i]
+	if i == 0:
+		text = text % GameState.data.name
+	main.say("(%d/%d) %s" % [i + 1, GUIDE.size(), text], func(): _guide(i + 1))
 
 
 func _pose() -> String:

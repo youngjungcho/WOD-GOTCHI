@@ -29,6 +29,10 @@ func wait(sec: float) -> void:
 func shot(name: String) -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
+	if DisplayServer.get_name() == "headless":
+		print("shot ", step, " ", name, " top=", main.top().get_script().get_global_name())
+		step += 1
+		return
 	var img := get_viewport().get_texture().get_image()
 	img.save_png(ProjectSettings.globalize_path("%s/%02d_%s.png" % [out_dir, step, name]))
 	print("shot ", step, " ", name, " top=", main.top().get_script().get_global_name())
@@ -54,6 +58,9 @@ func _run() -> void:
 	cs.rows[0].value = "철수"
 	await shot("creation_custom")
 	cs._register()
+	# 흐름 테스트를 위해 첫 안내는 미리 본 것으로 (안내 자체는 뒤에서 따로 확인)
+	GameState.mark_tutorial("home")
+	GameState.mark_tutorial("call")
 	await wait(0.6)
 	await shot("welcome_msg")
 	await press("a"); await press("a")
@@ -302,11 +309,14 @@ func _run() -> void:
 	# 호출 만료
 	GameState.spawn_call("lonely")
 	GameState.debug_hours(1.0)
+	print("away_report=", String(GameState.data.get("away_report", "")).replace("\n", " / "))
+	GameState.data.away_report = ""
 	print("after expire call_active=", GameState.call_active(), " ignored=", GameState.data.hist.ignored)
 	main.pop_to_root()
 	# ---- 진화 ----
 	GameState.data.mental = 80.0
 	GameState.debug_hours(30.0)
+	GameState.data.away_report = ""
 	GameState.debug_xp(80.0)
 	await wait(0.5)
 	await shot("evolving")
@@ -319,6 +329,7 @@ func _run() -> void:
 	# 스케일드 -> RX(체조 위주)
 	GameState.data.xp.gym = 400.0
 	GameState.debug_hours(48.0)
+	GameState.data.away_report = ""
 	GameState.debug_xp(150.0)
 	await wait(0.3)
 	main.top().t = 99.0
@@ -395,6 +406,29 @@ func _run() -> void:
 	await press("a"); await wait(0.1); await press("a")
 	main.pop_to_root()
 	print("DONE gauges=", GameState.data.gauges, " stage=", GameState.data.stage)
+	# ---- 첫 안내, 설정, 저장 코드 ----
+	main.pop_to_root()
+	GameState.data.sleeping = false
+	GameState.data.tutorials.erase("home")
+	await wait(0.4)
+	await shot("guide_1")
+	for i in 5:
+		await press("a"); await wait(0.15); await press("a"); await wait(0.15)
+	print("guide seen=", GameState.tutorial_seen("home"), " top=", main.top().get_script().get_global_name())
+	main.push(Menus.settings_menu(main))
+	await wait(0.2)
+	await shot("settings")
+	main.pop_to_root()
+	var code := GameState.export_code()
+	print("code len=", code.length())
+	var before_name: String = GameState.data.name
+	GameState.data.name = "바뀜"
+	print("import err='", GameState.import_code(code), "' name=", GameState.data.name, " (was ", before_name, ")")
+	print("bad import='", GameState.import_code("hello"), "'")
+	main.push(SaveCodeScreen.new(true))
+	await wait(0.2)
+	await shot("save_code")
+	main.pop_to_root()
 	GameState.reset_game()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Forms.DEX_PATH))
 	if FileAccess.file_exists(DEX_BACKUP):
